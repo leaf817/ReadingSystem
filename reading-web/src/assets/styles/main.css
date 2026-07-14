@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=ZCOOL+XiaoWei&display=swap');
 
 :root {
   --brand: #ff4d3a;
@@ -17,6 +17,7 @@
   --header-total: 108px;
   --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-display: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
 }
 
 *,

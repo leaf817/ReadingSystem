@@ -1,9 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { categories } from '@/data/mockBooks'
+import { useAuthStore } from '@/stores/auth'
 
 const keyword = ref('')
 const activeCategory = ref('推荐')
+const auth = useAuthStore()
+const router = useRouter()
+
+function goWorkspace() {
+  if (!auth.role) return
+  router.push(auth.roleHome[auth.role])
+}
+
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -46,7 +60,13 @@ const activeCategory = ref('推荐')
       <nav class="actions">
         <a href="javascript:;" class="actions__link">书架</a>
         <a href="javascript:;" class="actions__link">历史</a>
-        <button type="button" class="login-btn">登录</button>
+        <template v-if="auth.isLoggedIn">
+          <button type="button" class="actions__link" @click="goWorkspace">
+            {{ auth.user?.displayName }}
+          </button>
+          <button type="button" class="login-btn" @click="logout">退出</button>
+        </template>
+        <RouterLink v-else to="/login" class="login-btn">登录</RouterLink>
       </nav>
     </div>
 
@@ -207,6 +227,9 @@ const activeCategory = ref('推荐')
 }
 
 .login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   height: 32px;
   margin-left: 6px;
