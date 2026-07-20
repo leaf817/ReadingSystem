@@ -48,11 +48,10 @@ async function handleSubmit() {
   error.value = ''
   success.value = ''
   loading.value = true
-  await new Promise((r) => setTimeout(r, 280))
 
   const result = isLogin.value
-    ? auth.login(form.username, form.password)
-    : auth.register(form.username, form.password, form.confirm, form.nickname)
+    ? await auth.login(form.username, form.password)
+    : await auth.register(form.username, form.password, form.confirm, form.nickname)
 
   loading.value = false
 
@@ -181,7 +180,7 @@ async function handleSubmit() {
           </template>
         </p>
 
-        <p v-if="isLogin" class="demo">演示：admin / author / reader，密码 123456</p>
+        <p v-if="isLogin" class="demo">演示：admin / author / reader，密码 123456（需启动后端）</p>
       </div>
     </main>
   </div>

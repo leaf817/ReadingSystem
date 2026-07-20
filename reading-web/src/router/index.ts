@@ -2,6 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/view/HomeView.vue'
 import LoginView from '@/view/LoginView.vue'
 import WorkspaceView from '@/view/WorkspaceView.vue'
+import AdminLayout from '@/view/admin/AdminLayout.vue'
+import OverviewPage from '@/view/admin/OverviewPage.vue'
+import BooksPage from '@/view/admin/BooksPage.vue'
+import UsersPage from '@/view/admin/UsersPage.vue'
+import RanksPage from '@/view/admin/RanksPage.vue'
+import ReviewsPage from '@/view/admin/ReviewsPage.vue'
 import { useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
@@ -21,10 +27,40 @@ const router = createRouter({
     },
     {
       path: '/admin',
-      name: 'admin',
-      component: WorkspaceView,
-      props: { role: 'admin' satisfies UserRole },
-      meta: { title: '阅界 - 管理端', requiresAuth: true, role: 'admin' },
+      component: AdminLayout,
+      meta: { requiresAuth: true, role: 'admin' },
+      children: [
+        {
+          path: '',
+          name: 'admin',
+          component: OverviewPage,
+          meta: { title: '阅界 - 管理端工作台', requiresAuth: true, role: 'admin' },
+        },
+        {
+          path: 'books',
+          name: 'admin-books',
+          component: BooksPage,
+          meta: { title: '阅界 - 书籍管理', requiresAuth: true, role: 'admin' },
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: UsersPage,
+          meta: { title: '阅界 - 用户管理', requiresAuth: true, role: 'admin' },
+        },
+        {
+          path: 'ranks',
+          name: 'admin-ranks',
+          component: RanksPage,
+          meta: { title: '阅界 - 榜单运营', requiresAuth: true, role: 'admin' },
+        },
+        {
+          path: 'reviews',
+          name: 'admin-reviews',
+          component: ReviewsPage,
+          meta: { title: '阅界 - 内容审核', requiresAuth: true, role: 'admin' },
+        },
+      ],
     },
     {
       path: '/author',

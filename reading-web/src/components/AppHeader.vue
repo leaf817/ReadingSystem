@@ -1,23 +1,57 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { categories } from '@/data/mockBooks'
 import { useAuthStore } from '@/stores/auth'
 
 const keyword = ref('')
 const activeCategory = ref('推荐')
+const menuOpen = ref(false)
+const userMenu = ref<HTMLElement | null>(null)
 const auth = useAuthStore()
 const router = useRouter()
 
+const avatarText = computed(() => {
+  const name = auth.user?.displayName?.trim() || ''
+  return name.slice(0, 1) || '?'
+})
+
+const showWorkspace = computed(() => auth.role === 'admin' || auth.role === 'author')
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+}
+
+function closeMenu() {
+  menuOpen.value = false
+}
+
 function goWorkspace() {
-  if (!auth.role) return
+  closeMenu()
+  if (!auth.role || auth.role === 'reader') return
   router.push(auth.roleHome[auth.role])
 }
 
 function logout() {
+  closeMenu()
   auth.logout()
   router.push('/login')
 }
+
+function onDocClick(event: MouseEvent) {
+  if (!menuOpen.value || !userMenu.value) return
+  if (!userMenu.value.contains(event.target as Node)) {
+    closeMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+})
 </script>
 
 <template>
@@ -60,12 +94,36 @@ function logout() {
       <nav class="actions">
         <a href="javascript:;" class="actions__link">书架</a>
         <a href="javascript:;" class="actions__link">历史</a>
-        <template v-if="auth.isLoggedIn">
-          <button type="button" class="actions__link" @click="goWorkspace">
-            {{ auth.user?.displayName }}
+        <div v-if="auth.isLoggedIn" ref="userMenu" class="user-menu">
+          <button
+            type="button"
+            class="user-entry"
+            :class="{ 'is-open': menuOpen }"
+            aria-haspopup="menu"
+            :aria-expanded="menuOpen"
+            @click.stop="toggleMenu"
+          >
+            <span v-if="auth.user?.avatar" class="avatar avatar--img">
+              <img :src="auth.user.avatar" :alt="auth.user.displayName" />
+            </span>
+            <span v-else class="avatar">{{ avatarText }}</span>
+            <span>{{ auth.user?.displayName }}</span>
+            <svg class="caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+              <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
           </button>
-          <button type="button" class="login-btn" @click="logout">退出</button>
-        </template>
+          <div v-if="menuOpen" class="user-dropdown" role="menu">
+            <button
+              v-if="showWorkspace"
+              type="button"
+              role="menuitem"
+              @click="goWorkspace"
+            >
+              工作台
+            </button>
+            <button type="button" role="menuitem" class="is-danger" @click="logout">退出</button>
+          </div>
+        </div>
         <RouterLink v-else to="/login" class="login-btn">登录</RouterLink>
       </nav>
     </div>
@@ -102,10 +160,9 @@ function logout() {
 .header__bar {
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(240px, 640px) auto;
-  justify-content: space-between;
+  grid-template-columns: 1fr minmax(280px, 520px) 1fr;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   height: 60px;
   padding: 0 clamp(20px, 4vw, 48px);
 }
@@ -115,6 +172,7 @@ function logout() {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  justify-self: start;
 }
 
 .brand__mark {
@@ -155,7 +213,9 @@ function logout() {
   display: flex;
   align-items: center;
   width: 100%;
+  max-width: 520px;
   justify-self: center;
+  grid-column: 2;
   height: 38px;
   border: 1px solid rgba(120, 160, 220, 0.4);
   border-radius: 999px;
@@ -206,10 +266,12 @@ function logout() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  justify-self: end;
   gap: 4px;
   font-size: 13px;
   color: #5f6f86;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .actions__link {
@@ -224,6 +286,106 @@ function logout() {
 .actions__link:hover {
   color: var(--brand);
   background: rgba(255, 255, 255, 0.7);
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #5f6f86;
+  cursor: pointer;
+  font-size: 13px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.user-entry:hover,
+.user-entry.is-open {
+  color: var(--brand);
+  background: #fff;
+}
+
+.caret {
+  margin-left: -2px;
+  color: currentColor;
+  transition: transform 0.2s;
+}
+
+.user-entry.is-open .caret {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: 5px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 20px rgba(30, 40, 60, 0.12);
+}
+
+.user-dropdown button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.user-dropdown button:hover {
+  background: #fff5f3;
+  color: var(--brand);
+}
+
+.user-dropdown button.is-danger:hover {
+  color: var(--brand);
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #ff7a59, #ff4d3a);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar--img {
+  background: #f0eeea;
+}
+
+.avatar--img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .login-btn {
@@ -313,8 +475,8 @@ function logout() {
 
 @media (max-width: 900px) {
   .header__bar {
-    grid-template-columns: auto 1fr auto;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 1fr) minmax(0, 1fr);
+    gap: 12px;
     padding: 0 16px;
   }
 
@@ -335,6 +497,10 @@ function logout() {
 
 @media (max-width: 640px) {
   .actions__link {
+    display: none;
+  }
+
+  .user-entry > span:nth-child(2) {
     display: none;
   }
 

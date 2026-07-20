@@ -1,19 +1,23 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import BannerCarousel from '@/components/BannerCarousel.vue'
 import BookSection from '@/components/BookSection.vue'
 import RankList from '@/components/RankList.vue'
 import BookCard from '@/components/BookCard.vue'
 import ChannelPanel from '@/components/ChannelPanel.vue'
+import { fetchHomeFeed } from '@/api/book'
 import {
-  banners,
-  recommendBooks,
-  finishedBooks,
-  newBooks,
-  hotRank,
-  maleBooks,
-  femaleBooks,
-  guessBooks,
+  banners as mockBanners,
+  recommendBooks as mockRecommend,
+  finishedBooks as mockFinished,
+  newBooks as mockNew,
+  hotRank as mockHotRank,
+  maleBooks as mockMale,
+  femaleBooks as mockFemale,
+  guessBooks as mockGuess,
+  type BannerItem,
+  type Book,
 } from '@/data/mockBooks'
 
 const highlights = [
@@ -22,6 +26,36 @@ const highlights = [
   { label: '完结佳作', value: '320+' },
   { label: '在读用户', value: '1.2 万' },
 ]
+
+const loading = ref(true)
+const loadError = ref('')
+const banners = ref<BannerItem[]>([...mockBanners])
+const recommendBooks = ref<Book[]>([...mockRecommend])
+const finishedBooks = ref<Book[]>([...mockFinished])
+const newBooks = ref<Book[]>([...mockNew])
+const hotRank = ref<Book[]>([...mockHotRank])
+const maleBooks = ref<Book[]>([...mockMale])
+const femaleBooks = ref<Book[]>([...mockFemale])
+const guessBooks = ref<Book[]>([...mockGuess])
+
+onMounted(async () => {
+  try {
+    const data = await fetchHomeFeed()
+    banners.value = data.banners
+    recommendBooks.value = data.recommendBooks
+    finishedBooks.value = data.finishedBooks
+    newBooks.value = data.newBooks
+    hotRank.value = data.hotRank
+    maleBooks.value = data.maleBooks
+    femaleBooks.value = data.femaleBooks
+    guessBooks.value = data.guessBooks
+    loadError.value = ''
+  } catch {
+    loadError.value = '后端未连接，当前展示本地示例数据'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
@@ -29,6 +63,9 @@ const highlights = [
     <AppHeader />
 
     <main class="container main">
+      <p v-if="loadError" class="api-tip">{{ loadError }}</p>
+      <p v-else-if="loading" class="api-tip">正在同步书城数据…</p>
+
       <section class="top-row">
         <BannerCarousel :items="banners" />
         <RankList :books="hotRank" />
@@ -106,6 +143,15 @@ const highlights = [
   flex: 1;
   padding: 20px 0 64px;
   width: min(1280px, calc(100% - 32px));
+}
+
+.api-tip {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff6e8;
+  color: #c47a4a;
+  font-size: 13px;
 }
 
 .top-row {

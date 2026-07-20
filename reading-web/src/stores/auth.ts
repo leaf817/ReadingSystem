@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { loginApi, registerApi } from '@/api/auth'
+import { ApiError, setToken } from '@/api/request'
 
 export type UserRole = 'admin' | 'author' | 'reader'
 
@@ -7,16 +9,10 @@ export interface AuthUser {
   username: string
   role: UserRole
   displayName: string
+  avatar?: string
 }
 
-interface Account {
-  username: string
-  password: string
-  role: UserRole
-  displayName: string
-}
-
-const STORAGE_KEY = 'yuejie-accounts'
+const SESSION_KEY = 'yuejie-session'
 
 const roleHome: Record<UserRole, string> = {
   admin: '/admin',
@@ -30,70 +26,60 @@ const roleLabel: Record<UserRole, string> = {
   reader: '读者端',
 }
 
-const seedAccounts: Account[] = [
-  { username: 'admin', password: '123456', role: 'admin', displayName: '管理员' },
-  { username: 'author', password: '123456', role: 'author', displayName: '签约作者' },
-  { username: 'reader', password: '123456', role: 'reader', displayName: '普通读者' },
-]
-
-function loadAccounts(): Account[] {
+function loadSession(): AuthUser | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return [...seedAccounts]
-    const parsed = JSON.parse(raw) as Account[]
-    const names = new Set(parsed.map((a) => a.username))
-    const merged = [...parsed]
-    for (const seed of seedAccounts) {
-      if (!names.has(seed.username)) merged.push(seed)
-    }
-    return merged
+    const raw = localStorage.getItem(SESSION_KEY)
+    return raw ? (JSON.parse(raw) as AuthUser) : null
   } catch {
-    return [...seedAccounts]
+    return null
   }
 }
 
-function saveAccounts(list: Account[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+function saveSession(user: AuthUser | null) {
+  if (!user) {
+    localStorage.removeItem(SESSION_KEY)
+    return
+  }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(user))
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<AuthUser | null>(null)
-  const accounts = ref<Account[]>(loadAccounts())
+  const user = ref<AuthUser | null>(loadSession())
 
   const isLoggedIn = computed(() => !!user.value)
   const role = computed(() => user.value?.role ?? null)
 
-  function persist() {
-    saveAccounts(accounts.value)
+  function setUser(next: AuthUser | null) {
+    user.value = next
+    saveSession(next)
   }
 
-  function login(username: string, password: string) {
+  async function login(username: string, password: string) {
     const name = username.trim()
     if (!name) return { ok: false as const, message: '请输入账号' }
     if (!password) return { ok: false as const, message: '请输入密码' }
 
-    const found = accounts.value.find((a) => a.username === name)
-    if (!found) {
-      return { ok: false as const, message: '账号不存在，请先注册' }
-    }
-    if (found.password !== password) {
-      return { ok: false as const, message: '密码错误' }
-    }
-
-    user.value = {
-      username: found.username,
-      role: found.role,
-      displayName: found.displayName,
-    }
-
-    return {
-      ok: true as const,
-      redirectTo: roleHome[found.role],
-      message: `已进入${roleLabel[found.role]}`,
+    try {
+      const data = await loginApi({ username: name, password })
+      setToken(data.token)
+      setUser({
+        username: data.username,
+        role: data.role,
+        displayName: data.displayName || data.nickname,
+        avatar: data.avatar || undefined,
+      })
+      return {
+        ok: true as const,
+        redirectTo: roleHome[data.role],
+        message: `已进入${roleLabel[data.role]}`,
+      }
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : '登录失败，请检查后端是否启动'
+      return { ok: false as const, message }
     }
   }
 
-  function register(username: string, password: string, confirm: string, nickname: string) {
+  async function register(username: string, password: string, confirm: string, nickname: string) {
     const name = username.trim()
     const nick = nickname.trim()
     if (!nick) return { ok: false as const, message: '请输入昵称' }
@@ -103,34 +89,44 @@ export const useAuthStore = defineStore('auth', () => {
     if (!password) return { ok: false as const, message: '请输入密码' }
     if (password.length < 6) return { ok: false as const, message: '密码至少 6 位' }
     if (password !== confirm) return { ok: false as const, message: '两次密码不一致' }
-    if (accounts.value.some((a) => a.username === name)) {
-      return { ok: false as const, message: '账号已存在，请直接登录' }
-    }
 
-    const account: Account = {
-      username: name,
-      password,
-      role: 'reader',
-      displayName: nick,
-    }
-    accounts.value.push(account)
-    persist()
-
-    user.value = {
-      username: account.username,
-      role: account.role,
-      displayName: account.displayName,
-    }
-
-    return {
-      ok: true as const,
-      redirectTo: roleHome.reader,
-      message: '注册成功，已进入书城',
+    try {
+      const data = await registerApi({
+        username: name,
+        password,
+        confirmPassword: confirm,
+        nickname: nick,
+      })
+      setToken(data.token)
+      setUser({
+        username: data.username,
+        role: data.role,
+        displayName: data.displayName || data.nickname,
+        avatar: data.avatar || undefined,
+      })
+      return {
+        ok: true as const,
+        redirectTo: roleHome.reader,
+        message: '注册成功，已进入书城',
+      }
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : '注册失败，请检查后端是否启动'
+      return { ok: false as const, message }
     }
   }
 
   function logout() {
-    user.value = null
+    setToken(null)
+    setUser(null)
+  }
+
+  function patchProfile(patch: Partial<Pick<AuthUser, 'displayName' | 'avatar' | 'username'>>) {
+    if (!user.value) return
+    setUser({
+      ...user.value,
+      ...patch,
+      avatar: patch.avatar === undefined ? user.value.avatar : patch.avatar || undefined,
+    })
   }
 
   return {
@@ -140,6 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    patchProfile,
     roleHome,
     roleLabel,
   }
