@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 type Mode = 'login' | 'register'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 
 const mode = ref<Mode>('login')
@@ -61,7 +62,8 @@ async function handleSubmit() {
   }
 
   success.value = result.message
-  router.push(result.redirectTo)
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  router.push(redirect && redirect !== '/login' ? redirect : result.redirectTo)
 }
 </script>
 

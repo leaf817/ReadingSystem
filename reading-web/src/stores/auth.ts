@@ -13,6 +13,10 @@ export interface AuthUser {
 }
 
 const SESSION_KEY = 'yuejie-session'
+const AVATAR_KEY = 'yuejie-avatar'
+const LAST_PATH_KEY = 'yuejie-last-path'
+/** 头像过大时不写入 localStorage，避免配额失败导致整份会话丢失 */
+const MAX_AVATAR_PERSIST_CHARS = 120_000
 
 const roleHome: Record<UserRole, string> = {
   admin: '/admin',
@@ -29,7 +33,12 @@ const roleLabel: Record<UserRole, string> = {
 function loadSession(): AuthUser | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as AuthUser) : null
+    if (!raw) return null
+    const user = JSON.parse(raw) as AuthUser
+    if (!user?.username || !user?.role) return null
+    const avatar = localStorage.getItem(AVATAR_KEY)
+    if (avatar) user.avatar = avatar
+    return user
   } catch {
     return null
   }
@@ -38,9 +47,54 @@ function loadSession(): AuthUser | null {
 function saveSession(user: AuthUser | null) {
   if (!user) {
     localStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(AVATAR_KEY)
     return
   }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+
+  const { avatar, ...core } = user
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(core))
+  } catch {
+    try {
+      localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          username: core.username,
+          role: core.role,
+          displayName: core.displayName,
+        }),
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    if (avatar && avatar.length <= MAX_AVATAR_PERSIST_CHARS) {
+      localStorage.setItem(AVATAR_KEY, avatar)
+    } else {
+      localStorage.removeItem(AVATAR_KEY)
+    }
+  } catch {
+    localStorage.removeItem(AVATAR_KEY)
+  }
+}
+
+export function getLastPath() {
+  try {
+    return localStorage.getItem(LAST_PATH_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setLastPath(path: string) {
+  if (!path || path.startsWith('/login')) return
+  try {
+    localStorage.setItem(LAST_PATH_KEY, path)
+  } catch {
+    /* ignore */
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -118,6 +172,11 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     setToken(null)
     setUser(null)
+    try {
+      localStorage.removeItem(LAST_PATH_KEY)
+    } catch {
+      /* ignore */
+    }
   }
 
   function patchProfile(patch: Partial<Pick<AuthUser, 'displayName' | 'avatar' | 'username'>>) {

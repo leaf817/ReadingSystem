@@ -4,8 +4,14 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+/** 每次 `npm run dev` / 重启 Vite 都会变化；浏览器普通刷新不变 */
+const FRONTEND_BOOT_ID = String(Date.now())
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __FRONTEND_BOOT_ID__: JSON.stringify(FRONTEND_BOOT_ID),
+  },
   plugins: [
     vue(),
     vueDevTools(),

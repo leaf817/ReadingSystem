@@ -8,7 +8,7 @@ import BooksPage from '@/view/admin/BooksPage.vue'
 import UsersPage from '@/view/admin/UsersPage.vue'
 import RanksPage from '@/view/admin/RanksPage.vue'
 import ReviewsPage from '@/view/admin/ReviewsPage.vue'
-import { useAuthStore, type UserRole } from '@/stores/auth'
+import { getLastPath, setLastPath, useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -88,7 +88,12 @@ router.beforeEach((to) => {
     return auth.roleHome[auth.role]
   }
 
+  // 已登录访问登录页：回到原页面或角色首页
   if (to.name === 'login' && auth.isLoggedIn && auth.role) {
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : ''
+    if (redirect && redirect !== '/login') return redirect
+    const last = getLastPath()
+    if (last && last !== '/login') return last
     return auth.roleHome[auth.role]
   }
 
@@ -97,6 +102,10 @@ router.beforeEach((to) => {
 
 router.afterEach((to) => {
   document.title = (to.meta.title as string) || '阅界'
+  const auth = useAuthStore()
+  if (auth.isLoggedIn && to.name !== 'login') {
+    setLastPath(to.fullPath)
+  }
 })
 
 export default router
