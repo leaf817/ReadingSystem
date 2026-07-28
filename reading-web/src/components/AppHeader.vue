@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const keyword = ref('')
 const activeCategory = ref('推荐')
-const menuOpen = ref(false)
+const userOpen = ref(false)
 const userMenu = ref<HTMLElement | null>(null)
 const auth = useAuthStore()
 const router = useRouter()
@@ -17,13 +17,20 @@ const avatarText = computed(() => {
 })
 
 const showWorkspace = computed(() => auth.role === 'admin' || auth.role === 'author')
-
-function toggleMenu() {
-  menuOpen.value = !menuOpen.value
-}
+const showMine = computed(() => auth.role === 'reader')
 
 function closeMenu() {
-  menuOpen.value = false
+  userOpen.value = false
+}
+
+function toggleUser() {
+  userOpen.value = !userOpen.value
+}
+
+function goMine() {
+  closeMenu()
+  if (auth.role !== 'reader') return
+  router.push('/mine')
 }
 
 function goWorkspace() {
@@ -39,7 +46,7 @@ function logout() {
 }
 
 function onDocClick(event: MouseEvent) {
-  if (!menuOpen.value || !userMenu.value) return
+  if (!userOpen.value || !userMenu.value) return
   if (!userMenu.value.contains(event.target as Node)) {
     closeMenu()
   }
@@ -94,14 +101,15 @@ onBeforeUnmount(() => {
       <nav class="actions">
         <a href="javascript:;" class="actions__link">书架</a>
         <a href="javascript:;" class="actions__link">历史</a>
+
         <div v-if="auth.isLoggedIn" ref="userMenu" class="user-menu">
           <button
             type="button"
             class="user-entry"
-            :class="{ 'is-open': menuOpen }"
+            :class="{ 'is-open': userOpen }"
             aria-haspopup="menu"
-            :aria-expanded="menuOpen"
-            @click.stop="toggleMenu"
+            :aria-expanded="userOpen"
+            @click.stop="toggleUser"
           >
             <span v-if="auth.user?.avatar" class="avatar avatar--img">
               <img :src="auth.user.avatar" :alt="auth.user.displayName" />
@@ -109,10 +117,24 @@ onBeforeUnmount(() => {
             <span v-else class="avatar">{{ avatarText }}</span>
             <span>{{ auth.user?.displayName }}</span>
             <svg class="caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
-              <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+              <path
+                d="M2.5 4.2L6 7.8l3.5-3.6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
             </svg>
           </button>
-          <div v-if="menuOpen" class="user-dropdown" role="menu">
+          <div v-if="userOpen" class="dropdown" role="menu">
+            <button
+              v-if="showMine"
+              type="button"
+              role="menuitem"
+              @click="goMine"
+            >
+              个人中心
+            </button>
             <button
               v-if="showWorkspace"
               type="button"
@@ -124,6 +146,7 @@ onBeforeUnmount(() => {
             <button type="button" role="menuitem" class="is-danger" @click="logout">退出</button>
           </div>
         </div>
+
         <RouterLink v-else to="/login" class="login-btn">登录</RouterLink>
       </nav>
     </div>
@@ -277,9 +300,15 @@ onBeforeUnmount(() => {
 .actions__link {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   height: 32px;
   padding: 0 12px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   transition: color 0.2s, background 0.2s;
 }
 
@@ -314,7 +343,6 @@ onBeforeUnmount(() => {
 }
 
 .caret {
-  margin-left: -2px;
   color: currentColor;
   transition: transform 0.2s;
 }
@@ -323,7 +351,7 @@ onBeforeUnmount(() => {
   transform: rotate(180deg);
 }
 
-.user-dropdown {
+.dropdown {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -339,7 +367,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 20px rgba(30, 40, 60, 0.12);
 }
 
-.user-dropdown button {
+.dropdown button {
   display: block;
   width: 100%;
   border: 0;
@@ -354,12 +382,8 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.user-dropdown button:hover {
+.dropdown button:hover {
   background: #fff5f3;
-  color: var(--brand);
-}
-
-.user-dropdown button.is-danger:hover {
   color: var(--brand);
 }
 

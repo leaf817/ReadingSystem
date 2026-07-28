@@ -1,14 +1,24 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import type { Book } from '@/data/mockBooks'
+import { useReadingStore } from '@/stores/reading'
 
-defineProps<{
+const props = defineProps<{
   book: Book
   compact?: boolean
 }>()
+
+const router = useRouter()
+const reading = useReadingStore()
+
+function openBook() {
+  reading.remember(props.book, 1)
+  router.push({ name: 'read', params: { id: String(props.book.id) }, query: { chapter: '1' } })
+}
 </script>
 
 <template>
-  <article class="card" :class="{ 'is-compact': compact }">
+  <article class="card" :class="{ 'is-compact': compact }" role="link" tabindex="0" @click="openBook" @keydown.enter="openBook">
     <div class="cover-wrap">
       <img :src="book.cover" :alt="book.title" class="cover" loading="lazy" />
       <span class="status" :class="book.status === '完结' ? 'is-done' : 'is-serial'">

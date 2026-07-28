@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import SideIcon, { type SideIconName } from '@/components/SideIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -10,15 +11,16 @@ const router = useRouter()
 const menuOpen = ref(false)
 const userMenu = ref<HTMLElement | null>(null)
 
-const menus = [
-  { path: '/admin', label: '数据概览', exact: true },
-  { path: '/admin/books', label: '书籍管理' },
-  { path: '/admin/users', label: '用户管理' },
-  { path: '/admin/ranks', label: '榜单运营' },
-  { path: '/admin/reviews', label: '内容审核' },
+const menus: { path: string; label: string; exact?: boolean; icon: SideIconName }[] = [
+  { path: '/admin', label: '数据概览', exact: true, icon: 'overview' },
+  { path: '/admin/books', label: '书籍管理', icon: 'books' },
+  { path: '/admin/users', label: '用户管理', icon: 'users' },
+  { path: '/admin/ranks', label: '榜单运营', icon: 'ranks' },
+  { path: '/admin/reviews', label: '内容审核', icon: 'reviews' },
 ]
 
 const pageTitle = computed(() => {
+  if (route.path.startsWith('/admin/profile')) return '个人信息'
   const hit = menus.find((m) =>
     m.exact ? route.path === m.path : route.path.startsWith(m.path),
   )
@@ -43,6 +45,11 @@ function closeMenu() {
 function goBookstore() {
   closeMenu()
   router.push('/')
+}
+
+function goProfile() {
+  closeMenu()
+  router.push('/admin/profile')
 }
 
 function logout() {
@@ -70,12 +77,16 @@ onBeforeUnmount(() => {
 <template>
   <div class="layout">
     <aside class="side">
-      <div class="brand">
-        <span class="mark">阅</span>
-        <div>
-          <strong>阅界管理端</strong>
-          <p>运营工作台</p>
-        </div>
+      <div class="side__foot">
+        <button
+          type="button"
+          class="mine-btn"
+          :class="{ 'is-active': route.path.startsWith('/admin/profile') }"
+          @click="goProfile"
+        >
+          <SideIcon name="profile" :size="16" />
+          个人信息
+        </button>
       </div>
 
       <nav class="menu">
@@ -85,19 +96,17 @@ onBeforeUnmount(() => {
           :to="item.path"
           :class="{ 'is-active': isActive(item.path, item.exact) }"
         >
-          {{ item.label }}
+          <SideIcon :name="item.icon" :size="16" />
+          <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
 
-      <div class="side__foot">
-        <div class="who">
-          <span v-if="auth.user?.avatar" class="avatar avatar--sm avatar--img">
-            <img :src="auth.user.avatar" :alt="displayName" />
-          </span>
-          <span v-else class="avatar avatar--sm">{{ avatarText }}</span>
-          <p>{{ displayName }}</p>
+      <div class="brand">
+        <span class="mark">阅</span>
+        <div>
+          <strong>阅界 · 管理端</strong>
+          <p>运营工作台</p>
         </div>
-        <button type="button" class="logout" @click="logout">退出登录</button>
       </div>
     </aside>
 
@@ -151,7 +160,7 @@ onBeforeUnmount(() => {
 .layout {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 232px 1fr;
+  grid-template-columns: 228px 1fr;
   background:
     radial-gradient(ellipse 80% 50% at 8% -8%, rgba(255, 77, 58, 0.07), transparent 52%),
     radial-gradient(ellipse 55% 40% at 92% 0%, rgba(245, 166, 35, 0.05), transparent 48%),
@@ -164,54 +173,64 @@ onBeforeUnmount(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 22px 14px;
-  background: linear-gradient(180deg, #1f2a3d 0%, #24344d 100%);
+  gap: 24px;
+  padding: 20px 12px;
+  background: linear-gradient(180deg, #1a2435 0%, #24344d 100%);
   color: #fff;
 }
 
 .brand {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   display: grid;
   place-items: center;
   background: var(--brand);
   font-family: var(--font-serif);
-  font-size: 20px;
+  font-size: 19px;
   box-shadow: 0 8px 18px rgba(255, 77, 58, 0.28);
 }
 
 .brand strong {
   display: block;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .brand p {
   margin-top: 3px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .menu {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .menu a {
-  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 14px;
   transition: background 0.2s, color 0.2s;
+}
+
+.menu a :deep(.side-icon) {
+  opacity: 0.78;
 }
 
 .menu a:hover {
@@ -219,52 +238,56 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
+.menu a:hover :deep(.side-icon),
+.menu a.is-active :deep(.side-icon) {
+  opacity: 1;
+}
+
 .menu a.is-active {
   background: var(--brand);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 8px 16px rgba(255, 77, 58, 0.24);
 }
 
 .side__foot {
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 0 6px;
+  padding: 0 4px;
 }
 
-.who {
-  display: flex;
+.mine-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.who p {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.logout {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
+  justify-content: center;
+  gap: 8px;
   height: 40px;
   border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-.logout:hover {
+.mine-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 
+.mine-btn.is-active {
+  border-color: transparent;
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(255, 77, 58, 0.24);
+}
+
 .body {
   min-width: 0;
-  padding: 22px 24px 36px;
+  padding: 24px 28px 40px;
 }
 
 .top {
@@ -272,7 +295,7 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
 .top h1 {
@@ -302,23 +325,22 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 10px 0 4px;
-  border: 0;
+  height: 36px;
+  padding: 0 10px 0 6px;
   border-radius: 999px;
-  background: var(--brand-soft);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(30, 40, 60, 0.06);
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
 }
 
-.user-chip:hover,
-.user-chip.is-open {
-  background: #ffe8e3;
-  box-shadow: 0 2px 8px rgba(255, 77, 58, 0.12);
+.user-chip.is-open,
+.user-chip:hover {
+  border-color: rgba(255, 77, 58, 0.28);
 }
 
 .caret {
-  color: var(--brand);
+  color: var(--ink-muted);
   transition: transform 0.2s;
 }
 
@@ -328,11 +350,10 @@ onBeforeUnmount(() => {
 
 .user-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
   right: 0;
-  z-index: 60;
-  width: 100%;
+  top: calc(100% + 8px);
+  z-index: 20;
+  min-width: 132px;
   box-sizing: border-box;
   padding: 5px;
   border-radius: 10px;
@@ -361,6 +382,11 @@ onBeforeUnmount(() => {
   color: var(--brand);
 }
 
+.user-dropdown button.is-danger:hover {
+  background: #fff1ef;
+  color: #d9382a;
+}
+
 .avatar {
   width: 26px;
   height: 26px;
@@ -373,12 +399,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 700;
   overflow: hidden;
-}
-
-.avatar--sm {
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
 }
 
 .avatar--img {
@@ -420,13 +440,7 @@ onBeforeUnmount(() => {
     flex-wrap: wrap;
   }
 
-  .side__foot {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .logout {
+  .mine-btn {
     width: auto;
     padding: 0 16px;
   }

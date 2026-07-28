@@ -17,4 +17,5 @@ public class UserView {
     private String status;
     private String joinedAt;
     private String avatar;
+    private String bio;
 }

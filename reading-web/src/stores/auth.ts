@@ -10,6 +10,7 @@ export interface AuthUser {
   role: UserRole
   displayName: string
   avatar?: string
+  bio?: string
 }
 
 const SESSION_KEY = 'yuejie-session'
@@ -22,6 +23,12 @@ const roleHome: Record<UserRole, string> = {
   admin: '/admin',
   author: '/author',
   reader: '/',
+}
+
+const roleProfile: Record<UserRole, string> = {
+  admin: '/admin/profile',
+  author: '/author/profile',
+  reader: '/mine/profile',
 }
 
 const roleLabel: Record<UserRole, string> = {
@@ -179,12 +186,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function patchProfile(patch: Partial<Pick<AuthUser, 'displayName' | 'avatar' | 'username'>>) {
+  function patchProfile(
+    patch: Partial<Pick<AuthUser, 'displayName' | 'avatar' | 'username' | 'bio'>>,
+  ) {
     if (!user.value) return
     setUser({
       ...user.value,
       ...patch,
       avatar: patch.avatar === undefined ? user.value.avatar : patch.avatar || undefined,
+      bio: patch.bio === undefined ? user.value.bio : patch.bio || undefined,
     })
   }
 
@@ -197,6 +207,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     patchProfile,
     roleHome,
+    roleProfile,
     roleLabel,
   }
 })

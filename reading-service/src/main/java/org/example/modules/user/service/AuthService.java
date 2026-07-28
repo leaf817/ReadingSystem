@@ -18,9 +18,11 @@ import java.util.UUID;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TokenStore tokenStore;
 
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, TokenStore tokenStore) {
         this.userRepository = userRepository;
+        this.tokenStore = tokenStore;
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -80,18 +82,21 @@ public class AuthService {
         }
 
         String joinedAt = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
-        UserAccount account = new UserAccount(null, username, password, nickname, "reader", "正常", joinedAt, null);
+        UserAccount account = new UserAccount(
+                null, username, password, nickname, "reader", "正常", joinedAt, null, null);
         userRepository.save(account);
         return toAuthResponse(account);
     }
 
     private AuthResponse toAuthResponse(UserAccount user) {
+        String token = UUID.randomUUID().toString().replace("-", "");
+        tokenStore.bind(token, user.getUsername());
         return new AuthResponse(
                 user.getUsername(),
                 user.getNickname(),
                 user.getNickname(),
                 user.getRole(),
-                UUID.randomUUID().toString().replace("-", ""),
+                token,
                 user.getAvatar()
         );
     }

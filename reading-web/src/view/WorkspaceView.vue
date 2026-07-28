@@ -37,6 +37,7 @@ function logout() {
       <RouterLink to="/" class="brand">阅界 · {{ auth.roleLabel[role] }}</RouterLink>
       <div class="actions">
         <span v-if="auth.user" class="user">{{ auth.user.displayName }}</span>
+        <RouterLink v-if="role === 'author'" to="/author/profile" class="link">个人信息</RouterLink>
         <RouterLink to="/" class="link">返回书城</RouterLink>
         <button type="button" class="logout" @click="logout">退出登录</button>
       </div>

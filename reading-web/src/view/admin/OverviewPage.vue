@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import SideIcon, { type SideIconName } from '@/components/SideIcon.vue'
 import { adminHotRank, adminStats, reviewQueue } from './adminData'
 import './admin-shared.css'
+
+const shortcuts: { to: string; label: string; icon: SideIconName }[] = [
+  { to: '/admin/books', label: '书籍上下架', icon: 'books' },
+  { to: '/admin/users', label: '用户与作者', icon: 'users' },
+  { to: '/admin/ranks', label: '榜单运营', icon: 'ranks' },
+  { to: '/admin/reviews', label: '内容审核', icon: 'reviews' },
+]
 </script>
 
 <template>
@@ -52,28 +60,37 @@ import './admin-shared.css'
         <h2>快捷入口</h2>
       </div>
       <div class="cards">
-        <RouterLink to="/admin/books">书籍上下架</RouterLink>
-        <RouterLink to="/admin/users">用户与作者</RouterLink>
-        <RouterLink to="/admin/ranks">榜单运营</RouterLink>
-        <RouterLink to="/admin/reviews">内容审核</RouterLink>
+        <RouterLink v-for="item in shortcuts" :key="item.to" :to="item.to">
+          <span class="card-icon" aria-hidden="true">
+            <SideIcon :name="item.icon" :size="16" />
+          </span>
+          {{ item.label }}
+        </RouterLink>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 12px;
 }
 
 .stat {
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background:
+    linear-gradient(135deg, rgba(255, 77, 58, 0.05), transparent 48%),
+    #fff;
+  border-radius: 16px;
+  padding: 18px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.045);
   box-shadow: var(--shadow-soft);
 }
 
@@ -100,31 +117,64 @@ import './admin-shared.css'
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  margin-bottom: 16px;
 }
 
 .shortcuts .cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 .shortcuts a {
-  display: grid;
-  place-items: center;
-  height: 72px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 88px;
+  padding: 0 12px;
   border-radius: 12px;
-  background: linear-gradient(160deg, #fff7f5, #fff);
-  border: 1px solid rgba(255, 77, 58, 0.12);
+  background: #f8f6f2;
+  border: 1px solid transparent;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
-  transition: transform 0.2s, border-color 0.2s;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.shortcuts a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background 0.2s;
 }
 
 .shortcuts a:hover {
+  background: #fff;
+  border-color: rgba(255, 77, 58, 0.18);
+  box-shadow: 0 8px 20px rgba(255, 77, 58, 0.07);
   transform: translateY(-2px);
-  border-color: rgba(255, 77, 58, 0.35);
+  color: var(--brand);
+}
+
+.shortcuts a:hover::before {
+  background: var(--brand);
+}
+
+.card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 77, 58, 0.1);
   color: var(--brand);
 }
 

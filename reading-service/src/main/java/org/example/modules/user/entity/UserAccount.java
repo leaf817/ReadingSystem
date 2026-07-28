@@ -47,4 +47,8 @@ public class UserAccount {
     @Lob
     @Column(columnDefinition = "LONGTEXT")
     private String avatar;
+
+    /** 个人简介（作者等） */
+    @Column(length = 500)
+    private String bio;
 }

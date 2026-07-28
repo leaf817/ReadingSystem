@@ -1,9 +1,9 @@
 /* Shared admin panel styles */
 .admin-block {
   background: #fff;
-  border-radius: 14px;
-  padding: 16px 18px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  padding: 22px 24px 24px;
+  border: 1px solid rgba(0, 0, 0, 0.045);
   box-shadow: var(--shadow-soft);
 }
 
@@ -12,12 +12,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .admin-block__head h2 {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .admin-toolbar {

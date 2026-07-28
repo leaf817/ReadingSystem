@@ -73,15 +73,7 @@ public class UserAdminService {
     }
 
     private UserView toView(UserAccount user) {
-        return new UserView(
-                user.getId(),
-                user.getUsername(),
-                user.getNickname(),
-                user.getRole(),
-                user.getStatus(),
-                user.getJoinedAt(),
-                user.getAvatar()
-        );
+        return ProfileService.toView(user);
     }
 
     private String safeTrim(String value) {
