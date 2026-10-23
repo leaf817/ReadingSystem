@@ -1,11 +1,13 @@
 package org.example.modules.user.controller;
 
 import org.example.common.response.ResponseResult;
+import org.example.modules.user.dto.CreateUserRequest;
 import org.example.modules.user.dto.UpdateUserRequest;
 import org.example.modules.user.dto.UserView;
 import org.example.modules.user.service.UserAdminService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +28,11 @@ public class UserAdminController {
     @GetMapping
     public ResponseResult<List<UserView>> listUsers() {
         return ResponseResult.success(userAdminService.listUsers());
+    }
+
+    @PostMapping
+    public ResponseResult<UserView> createUser(@RequestBody CreateUserRequest request) {
+        return ResponseResult.success(userAdminService.createUser(request));
     }
 
     @PutMapping("/{id}")

@@ -1,9 +1,19 @@
 server:
   port: 8088
+  tomcat:
+    max-http-form-post-size: 8MB
+    max-swallow-size: 8MB
+
+reading:
+  upload-dir: uploads
 
 spring:
   application:
     name: reading-service
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 4MB
   datasource:
     url: jdbc:mysql://localhost:3306/reading_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}

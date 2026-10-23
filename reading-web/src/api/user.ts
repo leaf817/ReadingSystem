@@ -20,8 +20,24 @@ export interface UpdateUserPayload {
   avatar?: string | null
 }
 
+export interface CreateUserPayload {
+  nickname: string
+  username: string
+  password: string
+  role: ApiUserRole
+  status?: ApiUserStatus
+  avatar?: string | null
+}
+
 export function fetchUsersApi() {
   return request<ApiUser[]>('/api/admin/users')
+}
+
+export function createUserApi(payload: CreateUserPayload) {
+  return request<ApiUser>('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function updateUserApi(id: number, payload: UpdateUserPayload) {

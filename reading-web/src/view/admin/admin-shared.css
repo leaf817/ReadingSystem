@@ -84,11 +84,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: none;
 }
 
 .admin-table th {
   color: var(--ink-muted);
   font-weight: 500;
+  cursor: default;
+}
+
+.admin-table td {
+  cursor: default;
+}
+
+.admin-table .cell-text {
+  cursor: pointer;
 }
 
 .admin-tag {

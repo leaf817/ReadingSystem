@@ -6,6 +6,7 @@ import AuthorProfileView from '@/view/profile/AuthorProfileView.vue'
 import ReaderLayout from '@/view/mine/ReaderLayout.vue'
 import MineOverviewPage from '@/view/mine/OverviewPage.vue'
 import MinePlaceholderPage from '@/view/mine/PlaceholderPage.vue'
+import MineBookshelfPage from '@/view/mine/BookshelfPage.vue'
 import MinePrefsPage from '@/view/mine/PrefsPage.vue'
 import MineFollowPage from '@/view/mine/FollowPage.vue'
 import AuthorLayout from '@/view/author/AuthorLayout.vue'
@@ -19,6 +20,7 @@ import RanksPage from '@/view/admin/RanksPage.vue'
 import ReviewsPage from '@/view/admin/ReviewsPage.vue'
 import ProfilePage from '@/view/admin/ProfilePage.vue'
 import ReadView from '@/view/ReadView.vue'
+import BookCatalogView from '@/view/BookCatalogView.vue'
 import { getLastPath, setLastPath, useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
@@ -35,6 +37,12 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { title: '阅界 - 登录' },
+    },
+    {
+      path: '/book/:id',
+      name: 'book',
+      component: BookCatalogView,
+      meta: { title: '阅界 - 目录' },
     },
     {
       path: '/read/:id',
@@ -60,8 +68,7 @@ const router = createRouter({
         {
           path: 'bookshelf',
           name: 'mine-bookshelf',
-          component: MinePlaceholderPage,
-          props: { title: '我的书架', tip: '书架能力将在阅读器上线后接入。' },
+          component: MineBookshelfPage,
           meta: { title: '阅界 - 我的书架', requiresAuth: true, role: 'reader' },
         },
         {

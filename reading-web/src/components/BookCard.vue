@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import type { Book } from '@/data/mockBooks'
-import { useReadingStore } from '@/stores/reading'
 
 const props = defineProps<{
   book: Book
@@ -9,11 +8,9 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const reading = useReadingStore()
 
 function openBook() {
-  reading.remember(props.book, 1)
-  router.push({ name: 'read', params: { id: String(props.book.id) }, query: { chapter: '1' } })
+  router.push({ name: 'book', params: { id: String(props.book.id) } })
 }
 </script>
 

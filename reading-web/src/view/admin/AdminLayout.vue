@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
 
 .body {
   min-width: 0;
-  padding: 24px 28px 40px;
+  padding: 20px 16px 28px;
 }
 
 .top {

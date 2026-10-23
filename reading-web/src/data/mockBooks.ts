@@ -6,6 +6,7 @@ export interface Book {
   category: string
   tags: string[]
   status: '连载' | '完结'
+  shelf?: '上架' | '下架'
   heat: string
   desc: string
   chapters?: number

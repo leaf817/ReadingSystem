@@ -91,7 +91,7 @@ public class InMemoryBookRepository {
 
     private Book book(Long id, String title, String author, String seed, String from, String to,
                       String category, List<String> tags, String status, String heat, String desc, int chapters) {
-        return new Book(id, title, author, cover(seed, from, to), category, tags, status, heat, desc, chapters);
+        return new Book(id, title, author, cover(seed, from, to), category, tags, status, "上架", heat, desc, chapters);
     }
 
     private String cover(String seed, String from, String to) {

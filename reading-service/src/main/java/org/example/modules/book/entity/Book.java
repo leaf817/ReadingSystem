@@ -17,6 +17,8 @@ public class Book {
     private String category;
     private List<String> tags;
     private String status;
+    /** 上架 | 下架 */
+    private String shelf;
     private String heat;
     private String desc;
     private Integer chapters;

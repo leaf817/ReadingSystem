@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref } from 'vue'
+import { computed, onActivated, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ApiError } from '@/api/request'
-import { fetchUsersApi, updateUserApi, type ApiUser } from '@/api/user'
+import { fetchUsersApi, createUserApi, updateUserApi, type ApiUser } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import type { AdminUser } from './adminData'
 import './admin-shared.css'
@@ -14,6 +14,12 @@ const roleLabelMap: Record<ApiUser['role'], RoleTab> = {
   admin: '管理端',
   author: '作者端',
   reader: '读者端',
+}
+
+const roleApiMap: Record<RoleTab, ApiUser['role']> = {
+  管理端: 'admin',
+  作者端: 'author',
+  读者端: 'reader',
 }
 
 const tabs: { key: RoleTab; label: string; tip: string }[] = [
@@ -30,12 +36,15 @@ const list = ref<AdminUser[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const toast = ref('')
+const tip = ref('')
+let tipTimer: number | undefined
 const editingId = ref<number | null>(null)
-const formError = ref('')
+const creating = ref(false)
 
 const editForm = reactive({
   name: '',
   account: '',
+  password: '',
   status: '正常' as AdminUser['status'],
   avatar: '' as string,
 })
@@ -64,8 +73,11 @@ const filtered = computed(() => {
 })
 
 const activeTip = computed(() => tabs.find((t) => t.key === activeRole.value)?.tip ?? '')
-const showDialog = computed(() => editingId.value !== null)
+const showDialog = computed(() => creating.value || editingId.value !== null)
+const isCreateMode = computed(() => creating.value)
 const editingUser = computed(() => list.value.find((u) => u.id === editingId.value) ?? null)
+const dialogRole = computed(() => (isCreateMode.value ? activeRole.value : editingUser.value?.role ?? activeRole.value))
+const dialogTitle = computed(() => (isCreateMode.value ? '新增用户' : '编辑用户'))
 
 function mapUser(user: ApiUser): AdminUser {
   return {
@@ -89,6 +101,15 @@ function showToast(message: string) {
   window.setTimeout(() => {
     toast.value = ''
   }, 1800)
+}
+
+function showTip(message: string) {
+  tip.value = message
+  if (tipTimer) window.clearTimeout(tipTimer)
+  tipTimer = window.setTimeout(() => {
+    tip.value = ''
+    tipTimer = undefined
+  }, 600)
 }
 
 async function loadUsers() {
@@ -123,18 +144,31 @@ async function persistUser(user: AdminUser, patch: Partial<AdminUser>) {
   return user
 }
 
+function openCreate() {
+  creating.value = true
+  editingId.value = null
+  editForm.name = ''
+  editForm.account = ''
+  editForm.password = ''
+  editForm.status = '正常'
+  editForm.avatar = ''
+  if (fileInput.value) fileInput.value.value = ''
+}
+
 function openEdit(user: AdminUser) {
+  creating.value = false
   editingId.value = user.id
   editForm.name = user.name
   editForm.account = user.account
+  editForm.password = ''
   editForm.status = user.status
   editForm.avatar = user.avatar ?? ''
-  formError.value = ''
 }
 
 function closeEdit() {
+  creating.value = false
   editingId.value = null
-  formError.value = ''
+  editForm.password = ''
   if (fileInput.value) fileInput.value.value = ''
 }
 
@@ -148,12 +182,12 @@ function onAvatarFileChange(event: Event) {
   if (!file) return
 
   if (!file.type.startsWith('image/')) {
-    formError.value = '请选择图片文件'
+    showTip('请选择图片文件')
     input.value = ''
     return
   }
   if (file.size > 2 * 1024 * 1024) {
-    formError.value = '头像大小不能超过 2MB'
+    showTip('头像大小不能超过 2MB')
     input.value = ''
     return
   }
@@ -161,10 +195,9 @@ function onAvatarFileChange(event: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     editForm.avatar = String(reader.result ?? '')
-    formError.value = ''
   }
   reader.onerror = () => {
-    formError.value = '头像读取失败，请重试'
+    showTip('头像读取失败，请重试')
   }
   reader.readAsDataURL(file)
 }
@@ -177,21 +210,53 @@ function clearAvatar() {
 async function saveEdit() {
   const name = editForm.name.trim()
   const account = editForm.account.trim()
+  const password = editForm.password
 
   if (!name) {
-    formError.value = '请输入昵称'
+    showTip('请输入昵称')
     return
   }
   if (name.length < 2) {
-    formError.value = '昵称至少 2 个字符'
+    showTip('昵称至少 2 个字符')
     return
   }
   if (!account) {
-    formError.value = '请输入账号'
+    showTip('请输入账号')
     return
   }
   if (account.length < 3) {
-    formError.value = '账号至少 3 个字符'
+    showTip('账号至少 3 个字符')
+    return
+  }
+
+  if (isCreateMode.value) {
+    if (!password) {
+      showTip('请输入密码')
+      return
+    }
+    if (password.length < 6) {
+      showTip('密码至少 6 位')
+      return
+    }
+
+    saving.value = true
+    try {
+      const created = await createUserApi({
+        nickname: name,
+        username: account,
+        password,
+        role: roleApiMap[activeRole.value],
+        status: activeRole.value === '管理端' ? '正常' : editForm.status,
+        avatar: editForm.avatar || null,
+      })
+      list.value = [mapUser(created), ...list.value]
+      closeEdit()
+      showToast(`已新增「${created.nickname}」`)
+    } catch (error) {
+      showTip(error instanceof ApiError ? error.message : '新增失败')
+    } finally {
+      saving.value = false
+    }
     return
   }
 
@@ -199,12 +264,11 @@ async function saveEdit() {
   if (!current) return
 
   if (current.role === '管理端' && account !== 'admin') {
-    formError.value = '管理员账号不可修改'
+    showTip('管理员账号不可修改')
     return
   }
 
   saving.value = true
-  formError.value = ''
   try {
     await persistUser(current, {
       name,
@@ -215,7 +279,7 @@ async function saveEdit() {
     closeEdit()
     showToast(`已更新「${current.name}」`)
   } catch (error) {
-    formError.value = error instanceof ApiError ? error.message : '保存失败'
+    showTip(error instanceof ApiError ? error.message : '保存失败')
   } finally {
     saving.value = false
   }
@@ -249,14 +313,34 @@ function avatarText(name: string) {
   return name.trim().slice(0, 1) || '?'
 }
 
-function avatarTone(user: AdminUser) {
+function avatarTone(user: Pick<AdminUser, 'role'>) {
   if (user.role === '管理端') return 'tone-admin'
   if (user.role === '作者端') return 'tone-author'
   return 'tone-reader'
 }
 
+const avatarPreview = ref<{ src: string; name: string } | null>(null)
+
+function openAvatarPreview(user: AdminUser) {
+  if (!user.avatar) return
+  avatarPreview.value = { src: user.avatar, name: user.name }
+}
+
+function closeAvatarPreview() {
+  avatarPreview.value = null
+}
+
+function onPreviewKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeAvatarPreview()
+}
+
 onMounted(() => {
   void loadUsers()
+  window.addEventListener('keydown', onPreviewKey)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onPreviewKey)
 })
 
 onActivated(() => {
@@ -293,6 +377,9 @@ onActivated(() => {
             type="search"
             placeholder="搜索昵称 / 账号"
           />
+          <button type="button" class="admin-btn admin-btn--primary" @click="openCreate">
+            新增用户
+          </button>
         </div>
       </div>
 
@@ -310,13 +397,18 @@ onActivated(() => {
         <tbody>
           <tr v-for="user in filtered" :key="user.id">
             <td class="col-avatar">
-              <span v-if="user.avatar" class="avatar avatar--img">
+              <span
+                v-if="user.avatar"
+                class="avatar avatar--img avatar--zoom"
+                title="点击放大"
+                @click="openAvatarPreview(user)"
+              >
                 <img :src="user.avatar" :alt="user.name" />
               </span>
               <span v-else class="avatar" :class="avatarTone(user)">{{ avatarText(user.name) }}</span>
             </td>
-            <td class="col-name">{{ user.name }}</td>
-            <td class="col-account">{{ user.account }}</td>
+            <td class="col-name"><span class="cell-text">{{ user.name }}</span></td>
+            <td class="col-account"><span class="cell-text">{{ user.account }}</span></td>
             <td class="col-status">
               <span
                 class="status-pill"
@@ -358,15 +450,23 @@ onActivated(() => {
       <p v-if="toast" class="admin-toast">{{ toast }}</p>
     </div>
 
+    <Teleport to="body">
+      <div v-if="tip" class="tip-mask" aria-live="polite">
+        <div class="tip-card">
+          <p>{{ tip }}</p>
+        </div>
+      </div>
+    </Teleport>
+
     <div v-if="showDialog" class="dialog-mask" @click.self="closeEdit">
       <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
         <header class="dialog__head">
-          <h3 id="edit-user-title">编辑用户</h3>
+          <h3 id="edit-user-title">{{ dialogTitle }}</h3>
           <button type="button" class="dialog__close" @click="closeEdit">×</button>
         </header>
 
         <form class="dialog__body" @submit.prevent="saveEdit">
-          <div v-if="editingUser" class="dialog__avatar">
+          <div class="dialog__avatar">
             <div class="avatar-edit">
               <button
                 type="button"
@@ -377,8 +477,8 @@ onActivated(() => {
                 <span v-if="editForm.avatar" class="avatar avatar--lg avatar--img">
                   <img :src="editForm.avatar" alt="头像预览" />
                 </span>
-                <span v-else class="avatar avatar--lg" :class="avatarTone(editingUser)">
-                  {{ avatarText(editForm.name || editingUser.name) }}
+                <span v-else class="avatar avatar--lg" :class="avatarTone({ role: dialogRole })">
+                  {{ avatarText(editForm.name || dialogRole) }}
                 </span>
                 <span class="avatar-edit__hint">更换</span>
               </button>
@@ -392,7 +492,7 @@ onActivated(() => {
                 ×
               </button>
             </div>
-            <p>{{ editingUser.role }}</p>
+            <p>{{ dialogRole }}</p>
             <input
               ref="fileInput"
               class="sr-only"
@@ -413,7 +513,17 @@ onActivated(() => {
               v-model="editForm.account"
               type="text"
               placeholder="请输入账号"
-              :disabled="editingUser?.role === '管理端'"
+              :disabled="!isCreateMode && editingUser?.role === '管理端'"
+            />
+          </label>
+
+          <label v-if="isCreateMode" class="field">
+            <span>密码</span>
+            <input
+              v-model="editForm.password"
+              type="password"
+              placeholder="至少 6 位"
+              autocomplete="new-password"
             />
           </label>
 
@@ -421,7 +531,7 @@ onActivated(() => {
             <span>状态</span>
             <select
               v-model="editForm.status"
-              :disabled="editingUser?.role === '管理端'"
+              :disabled="dialogRole === '管理端'"
             >
               <option v-for="item in statusOptions" :key="item" :value="item">
                 {{ item }}
@@ -429,16 +539,26 @@ onActivated(() => {
             </select>
           </label>
 
-          <p v-if="formError" class="form-error">{{ formError }}</p>
-
           <div class="dialog__actions">
             <button type="button" class="btn-ghost" @click="closeEdit">取消</button>
             <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? '保存中...' : '保存' }}
+              {{ saving ? (isCreateMode ? '创建中...' : '保存中...') : isCreateMode ? '创建' : '保存' }}
             </button>
           </div>
         </form>
       </div>
+    </div>
+
+    <div
+      v-if="avatarPreview"
+      class="img-preview"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="avatarPreview.name"
+      @click="closeAvatarPreview"
+    >
+      <img :src="avatarPreview.src" :alt="avatarPreview.name" />
+      <p>{{ avatarPreview.name }}</p>
     </div>
   </section>
 </template>
@@ -549,6 +669,14 @@ onActivated(() => {
   color: var(--ink);
 }
 
+.user-table td {
+  cursor: default;
+}
+
+.user-table .cell-text {
+  cursor: pointer;
+}
+
 .user-table .col-account {
   color: var(--ink-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -589,6 +717,41 @@ onActivated(() => {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.avatar--zoom {
+  cursor: zoom-in;
+}
+
+.img-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  background: rgba(18, 14, 12, 0.72);
+  cursor: zoom-out;
+}
+
+.img-preview img {
+  width: min(72vw, 360px);
+  height: min(72vw, 360px);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  background: #f0eeea;
+}
+
+.img-preview p {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
 
 .avatar.tone-admin {
@@ -816,12 +979,46 @@ onActivated(() => {
   cursor: not-allowed;
 }
 
-.form-error {
-  font-size: 13px;
-  color: var(--brand);
-  background: var(--brand-soft);
-  border-radius: 10px;
-  padding: 10px 12px;
+.tip-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgba(20, 28, 40, 0.18);
+}
+
+.tip-card {
+  pointer-events: none;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(255, 77, 58, 0.12);
+  box-shadow: 0 16px 40px rgba(20, 28, 40, 0.18);
+  text-align: center;
+  animation: tip-in 0.2s ease-out;
+}
+
+.tip-card p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2a3340;
+  line-height: 1.45;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dialog__actions {

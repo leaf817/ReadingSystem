@@ -55,14 +55,14 @@ export const useReadingStore = defineStore('reading', () => {
     last.value = load(username.value)
   }
 
-  function remember(book: Book, chapterIndex = 1) {
+  function remember(book: Book, chapterIndex = 1, chapterTitle?: string) {
     const record: LastReading = {
       bookId: book.id,
       title: book.title,
       cover: book.cover,
       author: book.author,
       chapterIndex,
-      chapterTitle: chapterTitleOf(book, chapterIndex),
+      chapterTitle: chapterTitle || chapterTitleOf(book, chapterIndex),
       updatedAt: Date.now(),
     }
     save(record, username.value)
