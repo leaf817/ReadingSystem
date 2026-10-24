@@ -321,12 +321,14 @@ onMounted(() => {
 .identity {
   border-radius: 18px;
   padding: 28px 22px;
-  background: linear-gradient(165deg, #2a3548 0%, #1f2a3d 55%, #24344d 100%);
-  color: #fff;
+  background:
+    linear-gradient(180deg, #fff8f5 0%, #fff 42%);
+  color: var(--ink);
   display: flex;
   flex-direction: column;
   gap: 22px;
-  box-shadow: 0 16px 36px rgba(31, 42, 61, 0.22);
+  border: 1px solid rgba(255, 77, 58, 0.1);
+  box-shadow: var(--shadow-soft);
   min-height: 100%;
 }
 
@@ -368,7 +370,7 @@ onMounted(() => {
   font-size: 34px;
   font-weight: 700;
   overflow: hidden;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 0 4px #fff, 0 8px 18px rgba(255, 77, 58, 0.2);
 }
 
 .avatar--img {
@@ -428,8 +430,8 @@ onMounted(() => {
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 77, 58, 0.18);
-  color: #ffb4aa;
+  background: var(--brand-soft);
+  color: var(--brand);
   font-size: 12px;
   font-weight: 600;
 }
@@ -450,18 +452,18 @@ onMounted(() => {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f7f4f0;
 }
 
 .meta-list span {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ink-muted);
 }
 
 .meta-list strong {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--ink);
 }
 
 .account-mgmt {
@@ -473,23 +475,23 @@ onMounted(() => {
 
 .account-mgmt__label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ink-muted);
 }
 
 .account-mgmt__btn {
   height: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 77, 58, 0.18);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: #fff;
+  color: var(--brand);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .account-mgmt__btn:hover {
-  background: rgba(255, 77, 58, 0.22);
-  border-color: rgba(255, 180, 170, 0.45);
+  background: var(--brand-soft);
+  border-color: var(--brand);
 }
 
 .main-col {
@@ -500,7 +502,7 @@ onMounted(() => {
   background: #fff;
   border-radius: 18px;
   padding: 24px 26px;
-  border: 1.5px solid #d8dde6;
+  border: 1px solid rgba(0, 0, 0, 0.045);
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
@@ -542,8 +544,8 @@ onMounted(() => {
   height: 44px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1.5px solid #c5ccd8;
-  background: #eef1f5;
+  border: 1px solid #e6e1db;
+  background: #f7f4f0;
   outline: 0;
   font-size: 14px;
   font-weight: 500;
@@ -553,8 +555,8 @@ onMounted(() => {
 .field textarea {
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1.5px solid #c5ccd8;
-  background: #eef1f5;
+  border: 1px solid #e6e1db;
+  background: #f7f4f0;
   outline: 0;
   font-size: 14px;
   font-weight: 500;
@@ -580,9 +582,9 @@ onMounted(() => {
 
 .field input:focus,
 .field textarea:focus {
-  border-color: #24344d;
+  border-color: var(--brand);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(36, 52, 77, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 77, 58, 0.12);
 }
 
 .actions {

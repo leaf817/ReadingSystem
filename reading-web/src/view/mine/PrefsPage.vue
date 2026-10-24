@@ -77,10 +77,10 @@ onMounted(loadPrefs)
 
 <style scoped>
 .panel {
-  background: #fff;
+  background: var(--surface);
   border-radius: 18px;
   padding: 24px 26px;
-  border: 1.5px solid #d8dde6;
+  border: 1.5px solid var(--line);
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
@@ -96,7 +96,7 @@ onMounted(loadPrefs)
 .panel__head p {
   margin-top: 6px;
   font-size: 13px;
-  color: #5a6575;
+  color: var(--ink-secondary);
 }
 
 .fields {
@@ -118,12 +118,12 @@ onMounted(loadPrefs)
   height: 44px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1.5px solid #c5ccd8;
-  background: #eef1f5;
+  border: 1.5px solid var(--line);
+  background: var(--chip);
   outline: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #141c28;
+  color: var(--ink);
 }
 
 .toast-mask {

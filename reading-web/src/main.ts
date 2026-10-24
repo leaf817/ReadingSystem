@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import '@/assets/styles/main.css'
 
 const BOOT_KEY = 'yuejie-frontend-boot-id'
@@ -15,6 +16,7 @@ app.use(pinia)
 app.use(router)
 
 const auth = useAuthStore()
+useThemeStore().hydrate()
 const prevBootId = localStorage.getItem(BOOT_KEY)
 const currentBootId = __FRONTEND_BOOT_ID__
 const frontendRestarted = !prevBootId || prevBootId !== currentBootId

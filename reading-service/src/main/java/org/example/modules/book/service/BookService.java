@@ -24,10 +24,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -82,15 +85,18 @@ public class BookService {
     }
 
     public List<Book> listBooks(String keyword) {
+        return listBooks(keyword, null);
+    }
+
+    public List<Book> listBooks(String keyword, String by) {
         List<Book> all = loadBooks();
         String q = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
         if (q.isEmpty()) {
             return all;
         }
+        String field = normalizeSearchBy(by);
         return all.stream()
-                .filter(b -> b.getTitle().toLowerCase(Locale.ROOT).contains(q)
-                        || b.getAuthor().toLowerCase(Locale.ROOT).contains(q)
-                        || b.getCategory().contains(keyword.trim()))
+                .filter(b -> matchesSearch(b, q, field))
                 .collect(Collectors.toList());
     }
 
@@ -408,6 +414,106 @@ public class BookService {
                 {"#3a1a1a", "#ff4d3a"},
         };
         return palette[h % palette.length];
+    }
+
+    private boolean containsIgnoreCase(String value, String q) {
+        return StringUtils.hasText(value) && value.toLowerCase(Locale.ROOT).contains(q);
+    }
+
+    private String normalizeSearchBy(String by) {
+        if (!StringUtils.hasText(by)) {
+            return "title";
+        }
+        return switch (by.trim().toLowerCase(Locale.ROOT)) {
+            case "author", "tags", "protagonist", "supporting", "other" -> by.trim().toLowerCase(Locale.ROOT);
+            default -> "title";
+        };
+    }
+
+    private boolean matchesSearch(Book book, String q, String by) {
+        return switch (by) {
+            case "author" -> containsIgnoreCase(book.getAuthor(), q);
+            case "tags" -> contentTagsContain(book.getTags(), q) || containsIgnoreCase(book.getCategory(), q);
+            case "protagonist" -> fieldValuesContain(book, "主角", q);
+            case "supporting" -> fieldValuesContain(book, "配角", q);
+            case "other" -> fieldValuesContain(book, "其他", q);
+            default -> containsIgnoreCase(book.getTitle(), q);
+        };
+    }
+
+    private boolean contentTagsContain(List<String> tags, String q) {
+        if (tags == null || tags.isEmpty()) {
+            return false;
+        }
+        return tags.stream().anyMatch(tag -> {
+            if (!StringUtils.hasText(tag)) {
+                return false;
+            }
+            String trimmed = tag.trim();
+            if (trimmed.startsWith("主角:") || trimmed.startsWith("主角：")
+                    || trimmed.startsWith("配角:") || trimmed.startsWith("配角：")
+                    || trimmed.startsWith("其他:") || trimmed.startsWith("其他：")) {
+                return false;
+            }
+            return containsIgnoreCase(trimmed, q);
+        });
+    }
+
+    private boolean fieldValuesContain(Book book, String prefix, String q) {
+        return fieldValues(book, prefix).stream().anyMatch(item -> containsIgnoreCase(item, q));
+    }
+
+    private List<String> fieldValues(Book book, String prefix) {
+        List<String> values = new ArrayList<>();
+        values.addAll(prefixedTagValues(book.getTags(), prefix));
+        values.addAll(labeledValues(book.getDesc(), prefix));
+        return values;
+    }
+
+    private List<String> prefixedTagValues(List<String> tags, String prefix) {
+        if (tags == null || tags.isEmpty()) {
+            return List.of();
+        }
+        String colon = prefix + ":";
+        String fullwidth = prefix + "：";
+        List<String> values = new ArrayList<>();
+        for (String tag : tags) {
+            if (!StringUtils.hasText(tag)) {
+                continue;
+            }
+            String trimmed = tag.trim();
+            String rest;
+            if (trimmed.startsWith(colon)) {
+                rest = trimmed.substring(colon.length()).trim();
+            } else if (trimmed.startsWith(fullwidth)) {
+                rest = trimmed.substring(fullwidth.length()).trim();
+            } else {
+                continue;
+            }
+            values.addAll(splitNames(rest));
+        }
+        return values;
+    }
+
+    private List<String> labeledValues(String text, String prefix) {
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        Matcher matcher = Pattern.compile(prefix + "\\s*[:：]\\s*([^\\n┃|]+)").matcher(text);
+        if (!matcher.find()) {
+            return List.of();
+        }
+        return splitNames(matcher.group(1));
+    }
+
+    private List<String> splitNames(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return List.of();
+        }
+        return Arrays.stream(raw.split("[、，,/／]"))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toList());
     }
 
     private double parseHeat(String heat) {

@@ -35,8 +35,11 @@ public class BookController {
     }
 
     @GetMapping("/books")
-    public ResponseResult<List<Book>> books(@RequestParam(required = false) String keyword) {
-        return ResponseResult.success(bookService.listBooks(keyword));
+    public ResponseResult<List<Book>> books(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String by
+    ) {
+        return ResponseResult.success(bookService.listBooks(keyword, by));
     }
 
     @GetMapping("/books/{id}")

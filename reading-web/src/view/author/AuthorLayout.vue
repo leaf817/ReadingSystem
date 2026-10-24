@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
             </button>
             <div v-if="menuOpen" class="user-dropdown" role="menu">
               <button type="button" role="menuitem" @click="goBookstore">查看书城</button>
-              <button type="button" role="menuitem" class="is-danger" @click="logout">退出</button>
+              <button type="button" role="menuitem" class="is-danger" @click="logout">退出登录</button>
             </div>
           </div>
         </div>

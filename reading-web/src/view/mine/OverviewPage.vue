@@ -1,38 +1,94 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchMeApi } from '@/api/auth'
-import SideIcon, { type SideIconName } from '@/components/SideIcon.vue'
-import { useAuthStore } from '@/stores/auth'
+import BookCard from '@/components/BookCard.vue'
+import { fetchBooks } from '@/api/book'
+import { books as mockBooks, type Book } from '@/data/mockBooks'
+import { useBookmarkStore } from '@/stores/bookmark'
 import { useReadingStore } from '@/stores/reading'
+import { contentTagsOf } from '@/utils/bookSearch'
 
-const auth = useAuthStore()
 const reading = useReadingStore()
+const bookmarks = useBookmarkStore()
 const router = useRouter()
-const bio = ref(auth.user?.bio || '')
-
-const displayName = computed(() => auth.user?.displayName || '读者')
-const avatarText = computed(() => displayName.value.trim().slice(0, 1) || '读')
-const signature = computed(() => bio.value.trim() || '这个人很懒，还没有写签名')
+const catalog = ref<Book[]>([])
 const lastReading = computed(() => reading.last)
 
-const stats = [
-  { key: 'following', label: '关注', value: 0, tab: 'following' as const },
-  { key: 'followers', label: '粉丝', value: 0, tab: 'followers' as const },
-  { key: 'likes', label: '获赞', value: 0 },
-]
+const bookmarkBooks = computed(() => {
+  const latest = new Map<number, (typeof bookmarks.items)[number]>()
+  for (const item of bookmarks.items) {
+    const prev = latest.get(item.bookId)
+    if (!prev || item.addedAt > prev.addedAt) latest.set(item.bookId, item)
+  }
+  return [...latest.values()]
+    .sort((a, b) => b.addedAt - a.addedAt)
+    .map((mark) => {
+      const book = catalog.value.find((item) => item.id === mark.bookId)
+      const rec = reading.of(mark.bookId)
+      return {
+        bookId: mark.bookId,
+        title: book?.title || rec?.title || '未知作品',
+        cover: book?.cover || rec?.cover || '',
+        author: book?.author || rec?.author || '',
+        seq: mark.seq,
+        chapterTitle: mark.title,
+      }
+    })
+})
 
-const shortcuts: { to: string; title: string; desc: string; icon: SideIconName }[] = [
-  { to: '/mine/bookshelf', title: '我的书架', desc: '收藏与在读作品', icon: 'bookshelf' },
-  { to: '/mine/history', title: '浏览历史', desc: '最近浏览与阅读进度', icon: 'history' },
-  { to: '/mine/likes', title: '我的点赞', desc: '点赞过的作品与章节', icon: 'likes' },
-  { to: '/mine/comments', title: '我的评论', desc: '发表过的书评与讨论', icon: 'comments' },
-  { to: '/mine/prefs', title: '阅读偏好', desc: '字号、背景等设置', icon: 'prefs' },
-  { to: '/mine/become-author', title: '成为作家', desc: '申请开通创作权限', icon: 'author' },
-]
+const tasteTags = computed(() => {
+  const readIds = new Set(reading.records.map((item) => item.bookId))
+  const score = new Map<string, number>()
+  for (const book of catalog.value) {
+    if (!readIds.has(book.id)) continue
+    for (const tag of [book.category, ...contentTagsOf(book)]) {
+      const key = tag.trim()
+      if (!key) continue
+      score.set(key, (score.get(key) || 0) + 1)
+    }
+  }
+  return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag)
+})
 
-function goProfile() {
-  router.push('/mine/profile')
+const recommendBooks = computed(() => {
+  const occupied = new Set([
+    ...reading.records.map((item) => item.bookId),
+    ...bookmarkBooks.value.map((item) => item.bookId),
+  ])
+  const weights = new Map(tasteTags.value.map((tag, index) => [tag, tasteTags.value.length - index]))
+  const scored = catalog.value
+    .filter((book) => !occupied.has(book.id))
+    .map((book) => {
+      const types = [book.category, ...contentTagsOf(book)]
+      const score = types.reduce((sum, tag) => sum + (weights.get(tag) || 0), 0)
+      return { book, score }
+    })
+  const matched = scored.filter((item) => item.score > 0).sort((a, b) => b.score - a.score)
+  const pool = matched.length ? matched : scored
+  return pool.slice(0, 5).map((item) => item.book)
+})
+
+const recommendHint = computed(() => {
+  const tags = tasteTags.value.slice(0, 3)
+  if (!tags.length) return '先读几本书，之后会按你的阅读类型来推荐'
+  return `根据你读过的「${tags.join('、')}」推荐`
+})
+
+const recentReads = computed(() =>
+  [...reading.records].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5),
+)
+
+const hotBooks = computed(() =>
+  [...catalog.value]
+    .sort((a, b) => heatValue(b.heat) - heatValue(a.heat))
+    .slice(0, 8),
+)
+
+function heatValue(heat?: string) {
+  const raw = String(heat || '0').replace(/万/g, '')
+  const n = Number.parseFloat(raw)
+  if (!Number.isFinite(n)) return 0
+  return String(heat).includes('万') ? n * 10000 : n
 }
 
 function continueReading() {
@@ -44,76 +100,40 @@ function continueReading() {
   })
 }
 
-function onStatClick(event: Event, tab?: string) {
-  if (!tab) return
-  event.preventDefault()
-  event.stopPropagation()
-  router.push({ path: '/mine/follow', query: { tab } })
+function openBookmark(item: (typeof bookmarkBooks.value)[number]) {
+  router.push({
+    name: 'read',
+    params: { id: String(item.bookId) },
+    query: { chapter: String(item.seq) },
+  })
+}
+
+function openRecent(item: (typeof recentReads.value)[number]) {
+  router.push({
+    name: 'read',
+    params: { id: String(item.bookId) },
+    query: { chapter: String(item.chapterIndex) },
+  })
+}
+
+function openBook(id: number) {
+  router.push({ name: 'book', params: { id: String(id) } })
 }
 
 onMounted(async () => {
   reading.hydrate()
+  bookmarks.hydrate()
   try {
-    const me = await fetchMeApi()
-    bio.value = me.bio || ''
-    auth.patchProfile({
-      displayName: me.nickname,
-      avatar: me.avatar || undefined,
-      bio: me.bio || undefined,
-      username: me.username,
-    })
-    reading.hydrate()
+    catalog.value = await fetchBooks()
   } catch {
-    bio.value = auth.user?.bio || ''
+    catalog.value = mockBooks
   }
 })
 </script>
 
 <template>
+  <div class="home">
   <div class="overview">
-    <div class="profile-card" role="link" tabindex="0" @click="goProfile" @keydown.enter="goProfile">
-      <span v-if="auth.user?.avatar" class="avatar avatar--img">
-        <img :src="auth.user.avatar" :alt="displayName" />
-      </span>
-      <span v-else class="avatar">{{ avatarText }}</span>
-
-      <div class="profile-card__body">
-        <div class="profile-card__top">
-          <strong class="name">{{ displayName }}</strong>
-          <span class="profile-entry">
-            个人信息
-            <svg class="chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-              <path
-                d="M4.2 2.5L7.8 6 4.2 9.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-        </div>
-
-        <div class="stats">
-          <button
-            v-for="item in stats"
-            :key="item.key"
-            type="button"
-            class="stat"
-            :class="{ 'is-link': Boolean(item.tab) }"
-            :disabled="!item.tab"
-            @click="onStatClick($event, item.tab)"
-          >
-            <b>{{ item.value }}</b>
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-
-        <p class="signature" :class="{ 'is-empty': !bio.trim() }">{{ signature }}</p>
-      </div>
-    </div>
-
     <button
       v-if="lastReading"
       type="button"
@@ -142,189 +162,96 @@ onMounted(async () => {
 
     <section class="block">
       <div class="block__head">
-        <h2>快捷入口</h2>
+        <h2>我的书签</h2>
       </div>
-      <div class="cards">
-        <RouterLink v-for="item in shortcuts" :key="item.to" :to="item.to">
-          <span class="card-icon" aria-hidden="true">
-            <SideIcon :name="item.icon" :size="16" />
-          </span>
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.desc }}</span>
-        </RouterLink>
+      <p v-if="!bookmarkBooks.length" class="empty">还没有书签，阅读时点书签后会出现在这里</p>
+      <div v-else class="mark-list">
+        <button
+          v-for="item in bookmarkBooks"
+          :key="`${item.bookId}-${item.seq}`"
+          type="button"
+          class="mark"
+          @click="openBookmark(item)"
+        >
+          <img v-if="item.cover" :src="item.cover" :alt="item.title" />
+          <span v-else class="mark__fallback">{{ item.title.slice(0, 1) }}</span>
+          <div>
+            <strong>{{ item.title }}</strong>
+            <em>{{ item.author }}</em>
+            <small>书签 · {{ item.chapterTitle }}</small>
+          </div>
+        </button>
       </div>
     </section>
+
+    <section class="block">
+      <div class="block__head">
+        <h2>小说推荐</h2>
+        <span>{{ recommendHint }}</span>
+      </div>
+      <p v-if="!recommendBooks.length" class="empty">暂时没有可推荐的作品</p>
+      <div v-else class="grid">
+        <BookCard v-for="book in recommendBooks" :key="book.id" :book="book" compact />
+      </div>
+    </section>
+  </div>
+
+  <aside class="rail">
+    <section class="block">
+      <div class="block__head">
+        <h2>最近阅读</h2>
+      </div>
+      <p v-if="!recentReads.length" class="empty">还没有阅读记录</p>
+      <ul v-else class="rail-list">
+        <li v-for="item in recentReads" :key="item.bookId">
+          <button type="button" @click="openRecent(item)">
+            <img v-if="item.cover" :src="item.cover" :alt="item.title" />
+            <span v-else class="rail-fallback">{{ item.title.slice(0, 1) }}</span>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.chapterTitle }}</small>
+            </div>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <section class="block">
+      <div class="block__head">
+        <h2>热门榜</h2>
+      </div>
+      <p v-if="!hotBooks.length" class="empty">暂无热门作品</p>
+      <ol v-else class="hot-list">
+        <li v-for="(book, index) in hotBooks" :key="book.id">
+          <button type="button" @click="openBook(book.id)">
+            <em :class="{ 'is-top': index < 3 }">{{ index + 1 }}</em>
+            <span>{{ book.title }}</span>
+          </button>
+        </li>
+      </ol>
+    </section>
+  </aside>
   </div>
 </template>
 
 <style scoped>
-.overview {
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+  gap: 18px;
+}
+
+.overview,
+.rail {
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.profile-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 26px 28px;
-  min-height: 140px;
-  border-radius: 16px;
-  background:
-    linear-gradient(135deg, rgba(255, 77, 58, 0.06), transparent 42%),
-    #fff;
-  border: 1px solid rgba(0, 0, 0, 0.045);
-  box-shadow: var(--shadow-soft);
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-}
-
-.profile-card:hover {
-  border-color: rgba(255, 77, 58, 0.22);
-  box-shadow: 0 12px 28px rgba(255, 77, 58, 0.08);
-  transform: translateY(-1px);
-}
-
-.avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-  background: linear-gradient(145deg, #ff7a59, #ff4d3a);
-  color: #fff;
-  font-size: 26px;
-  font-weight: 700;
-  overflow: hidden;
-  box-shadow: 0 8px 18px rgba(255, 77, 58, 0.22);
-}
-
-.avatar--img {
-  background: #f0eeea;
-  padding: 0;
-}
-
-.avatar--img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.profile-card__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.name {
-  display: block;
-  font-family: var(--font-serif);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #1a1a1a;
-  line-height: 1.2;
-}
-
-.stats {
-  margin-top: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-}
-
-.stat {
-  position: relative;
-  border: 0;
-  padding: 0 18px;
-  background: transparent;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  cursor: default;
-}
-
-.stat:first-child {
-  padding-left: 0;
-}
-
-.stat + .stat::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 1px;
-  background: #ebe7e0;
-}
-
-.stat b {
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  line-height: 1.1;
-}
-
-.stat span {
-  font-size: 12px;
-  color: #8a8f98;
-}
-
-.stat.is-link {
-  cursor: pointer;
-}
-
-.stat.is-link:hover b,
-.stat.is-link:hover span {
-  color: var(--brand);
-}
-
-.stat:disabled {
-  opacity: 1;
-}
-
-.signature {
-  margin-top: 14px;
-  max-width: 48em;
-  font-size: 13px;
-  line-height: 1.7;
-  color: #6a7380;
-  white-space: normal;
-  word-break: break-word;
-}
-
-.signature.is-empty {
-  color: #a8afbb;
-}
-
-.profile-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #9aa1ab;
-}
-
-.profile-card:hover .profile-entry {
-  color: var(--brand);
-}
-
-.chevron {
-  color: currentColor;
+.rail {
+  position: sticky;
+  top: 124px;
 }
 
 .continue {
@@ -335,14 +262,15 @@ onMounted(async () => {
   padding: 12px 16px;
   border: 0;
   border-radius: 12px;
-  background: #f5f5f5;
+  background: var(--surface);
   text-align: left;
   cursor: pointer;
+  box-shadow: var(--shadow-soft);
   transition: background 0.2s;
 }
 
 .continue:hover {
-  background: #efefef;
+  background: var(--elevated);
 }
 
 .continue__cover {
@@ -365,7 +293,7 @@ onMounted(async () => {
 .continue__meta strong {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -373,7 +301,7 @@ onMounted(async () => {
 
 .continue__meta span {
   font-size: 13px;
-  color: #999;
+  color: var(--ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -385,7 +313,7 @@ onMounted(async () => {
   gap: 2px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #888;
+  color: var(--ink-muted);
 }
 
 .continue:hover .continue__action {
@@ -393,11 +321,18 @@ onMounted(async () => {
 }
 
 .block {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   padding: 22px 24px 24px;
-  border: 1px solid rgba(0, 0, 0, 0.045);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
+}
+
+.block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .block__head h2 {
@@ -406,99 +341,213 @@ onMounted(async () => {
   letter-spacing: 0.02em;
 }
 
-.cards {
+.block__head span {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.empty {
+  margin-top: 16px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.mark-list {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.mark {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
   gap: 12px;
-}
-
-.cards a {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 18px 16px 16px 18px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
   border-radius: 12px;
-  background: #f8f6f2;
-  border: 1px solid transparent;
-  overflow: hidden;
-  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  background: var(--chip);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
 }
 
-.cards a::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: transparent;
-  transition: background 0.2s;
+.mark:hover {
+  background: var(--brand-soft);
+  transform: translateY(-1px);
 }
 
-.cards a:hover {
-  background: #fff;
-  border-color: rgba(255, 77, 58, 0.18);
-  box-shadow: 0 8px 20px rgba(255, 77, 58, 0.07);
-  transform: translateY(-2px);
+.mark img,
+.mark__fallback {
+  width: 48px;
+  height: 64px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: linear-gradient(145deg, #ff7a59, #ff4d3a);
 }
 
-.cards a:hover::before {
-  background: var(--brand);
-}
-
-.card-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+.mark__fallback {
   display: grid;
   place-items: center;
-  background: rgba(255, 77, 58, 0.1);
-  color: var(--brand);
+  color: #fff;
+  font-weight: 700;
 }
 
-.cards strong {
-  font-size: 15px;
+.mark strong,
+.mark em,
+.mark small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mark strong {
+  font-size: 14px;
   color: var(--ink);
 }
 
-.cards span {
-  font-size: 13px;
+.mark em {
+  margin-top: 3px;
+  font-style: normal;
+  font-size: 12px;
   color: var(--ink-muted);
-  line-height: 1.5;
+}
+
+.mark small {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--brand);
+}
+
+.grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px 12px;
+}
+
+.rail-list,
+.hot-list {
+  margin-top: 12px;
+  list-style: none;
+}
+
+.rail-list button,
+.hot-list button {
+  display: grid;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rail-list button {
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.rail-list img,
+.rail-fallback {
+  width: 40px;
+  height: 54px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: linear-gradient(145deg, #ff7a59, #ff4d3a);
+}
+
+.rail-fallback {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rail-list strong,
+.rail-list small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-list strong {
+  font-size: 13px;
+}
+
+.rail-list small {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.rail-list button:hover strong {
+  color: var(--brand);
+}
+
+.hot-list button {
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.hot-list em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b8bcc4;
+}
+
+.hot-list em.is-top {
+  color: var(--brand);
+}
+
+.hot-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.hot-list button:hover span {
+  color: var(--brand);
+}
+
+@media (max-width: 1100px) {
+  .home {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    position: static;
+  }
+
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 980px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
+  .mark-list,
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 720px) {
-  .cards {
+  .mark-list {
     grid-template-columns: 1fr;
   }
 
-  .profile-card {
-    padding: 20px;
-  }
-
-  .name {
-    font-size: 20px;
-  }
-
-  .stat {
-    padding: 0 14px;
-  }
-
-  .stat b {
-    font-size: 18px;
-  }
-
-  .signature {
-    max-width: 100%;
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .continue__action {

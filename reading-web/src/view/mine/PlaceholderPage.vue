@@ -14,10 +14,10 @@ defineProps<{
 
 <style scoped>
 .placeholder {
-  background: #fff;
+  background: var(--surface);
   border-radius: 14px;
   padding: 36px 28px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
 }
 

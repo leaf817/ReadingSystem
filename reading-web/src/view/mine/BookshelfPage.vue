@@ -1,17 +1,39 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { fetchBook } from '@/api/book'
 import { useShelfStore } from '@/stores/shelf'
+import { useReadingStore } from '@/stores/reading'
 
 const router = useRouter()
 const shelf = useShelfStore()
+const reading = useReadingStore()
 
-onMounted(() => {
+onMounted(async () => {
   shelf.hydrate()
+  reading.hydrate()
+  await Promise.all(
+    shelf.items.map(async (item) => {
+      try {
+        const book = await fetchBook(item.bookId)
+        reading.ensureTotal(item.bookId, book.chapters)
+      } catch {
+        /* ignore */
+      }
+    }),
+  )
 })
 
 function openBook(bookId: number) {
   void router.push({ name: 'book', params: { id: String(bookId) } })
+}
+
+function progressText(bookId: number) {
+  const item = reading.of(bookId)
+  if (!item) return '尚未阅读'
+  const pct = reading.percent(bookId)
+  if (pct != null) return `已读至 ${item.chapterTitle} · ${pct}%`
+  return `已读至 ${item.chapterTitle}`
 }
 </script>
 
@@ -30,6 +52,7 @@ function openBook(bookId: number) {
           <div>
             <strong>{{ item.title }}</strong>
             <em>{{ item.author }}</em>
+            <small>{{ progressText(item.bookId) }}</small>
           </div>
         </button>
       </li>
@@ -39,7 +62,7 @@ function openBook(bookId: number) {
 
 <style scoped>
 .shelf-page {
-  background: #fff;
+  background: var(--surface);
   border-radius: 14px;
   padding: 24px;
   box-shadow: var(--shadow-soft);
@@ -57,7 +80,8 @@ h2 {
 
 header span,
 .empty,
-em {
+em,
+small {
   color: var(--ink-muted);
   font-size: 13px;
 }
@@ -80,9 +104,9 @@ li button {
   gap: 12px;
   width: 100%;
   padding: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--elevated);
   text-align: left;
   cursor: pointer;
 }
@@ -107,12 +131,18 @@ img,
 }
 
 strong,
-em {
+em,
+small {
   display: block;
 }
 
 em {
   margin-top: 4px;
   font-style: normal;
+}
+
+small {
+  margin-top: 6px;
+  line-height: 1.4;
 }
 </style>

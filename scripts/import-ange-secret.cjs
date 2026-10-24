@@ -151,7 +151,7 @@ function main() {
     '拽痞注孤生VS伪善少女',
     '主角：丁羡、周斯越 ┃ 配角：蒋沉、杨纯子',
   ].join('\n')
-  const tags = '都市,校园,正剧,其他:校园文'
+  const tags = '都市,校园,正剧,主角:丁羡,主角:周斯越,配角:蒋沉,配角:杨纯子,其他:校园文'
 
   const inserts = chapters.map((ch, i) => {
     const seq = i + 1

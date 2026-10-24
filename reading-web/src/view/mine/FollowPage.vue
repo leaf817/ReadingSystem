@@ -80,9 +80,9 @@ function switchTab(key: TabKey) {
   flex-wrap: wrap;
   gap: 8px;
   padding: 6px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
 }
 
@@ -92,7 +92,7 @@ function switchTab(key: TabKey) {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #5a6575;
+  color: var(--space-tab-ink);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -101,7 +101,7 @@ function switchTab(key: TabKey) {
 
 .tab:hover {
   color: var(--brand);
-  background: #fff5f3;
+  background: var(--brand-soft);
 }
 
 .tab.is-active {
@@ -111,9 +111,9 @@ function switchTab(key: TabKey) {
 
 .panel {
   min-height: 280px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
   display: grid;
   place-items: center;

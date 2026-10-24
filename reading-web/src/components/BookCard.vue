@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Book } from '@/data/mockBooks'
+import { contentTagsOf } from '@/utils/bookSearch'
 
 const props = defineProps<{
   book: Book
   compact?: boolean
+  highlight?: string
 }>()
+
+const visibleTags = computed(() => contentTagsOf(props.book))
+
+function tagHit(tag: string) {
+  const q = props.highlight?.trim().toLowerCase()
+  return Boolean(q) && tag.toLowerCase().includes(q)
+}
 
 const router = useRouter()
 
@@ -30,7 +40,11 @@ function openBook() {
       <p class="author">{{ book.author }}</p>
       <p v-if="!compact" class="desc">{{ book.desc }}</p>
       <div class="tags">
-        <span v-for="tag in book.tags.slice(0, 2)" :key="tag">{{ tag }}</span>
+        <span
+          v-for="tag in visibleTags.slice(0, 4)"
+          :key="tag"
+          :class="{ 'is-hit': tagHit(tag) }"
+        >{{ tag }}</span>
         <span class="heat">{{ book.heat }}热度</span>
       </div>
     </div>
@@ -158,11 +172,12 @@ function openBook() {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 6px;
-  background: #f2efe9;
+  background: var(--chip);
   color: var(--ink-secondary);
 }
 
-.tags .heat {
+.tags .heat,
+.tags .is-hit {
   background: var(--brand-soft);
   color: var(--brand);
 }

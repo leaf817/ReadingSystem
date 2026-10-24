@@ -42,7 +42,7 @@ withDefaults(
   border-radius: 16px;
   padding: 14px 14px 10px;
   box-shadow: var(--shadow-soft);
-  border: 1px solid rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   overflow: hidden;

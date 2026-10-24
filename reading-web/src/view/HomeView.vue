@@ -60,7 +60,7 @@ onMounted(async () => {
 
 <template>
   <div class="page">
-    <AppHeader />
+    <AppHeader :with-cats="true" />
 
     <main class="container main">
       <p v-if="loadError" class="api-tip">{{ loadError }}</p>
@@ -93,13 +93,13 @@ onMounted(async () => {
           title="男生频道"
           subtitle="玄幻都市 · 热血爽文"
           :books="maleBooks"
-          tone="linear-gradient(160deg, #f7fbff, #eef5ff)"
+          tone="var(--channel-male)"
         />
         <ChannelPanel
           title="女生频道"
           subtitle="甜宠治愈 · 高糖言情"
           :books="femaleBooks"
-          tone="linear-gradient(160deg, #fff7fa, #ffeef4)"
+          tone="var(--channel-female)"
         />
       </section>
 
@@ -175,8 +175,8 @@ onMounted(async () => {
   gap: 8px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: #fff;
-  border: 1px solid rgba(255, 120, 100, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
 }
 
@@ -213,8 +213,8 @@ onMounted(async () => {
   margin-top: 40px;
   padding: 22px 20px 10px;
   border-radius: 16px;
-  background: linear-gradient(165deg, #fff, #fff5f1);
-  border: 1px solid rgba(255, 77, 58, 0.08);
+  background: var(--shelf-bg);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
 }
 
@@ -226,8 +226,8 @@ onMounted(async () => {
 }
 
 .footer {
-  border-top: 1px solid rgba(120, 160, 220, 0.2);
-  background: linear-gradient(180deg, #f3f8ff 0%, #eef5ff 55%, #e8f1ff 100%);
+  border-top: 1px solid var(--header-line);
+  background: var(--header-bg);
   padding: 36px 0;
 }
 

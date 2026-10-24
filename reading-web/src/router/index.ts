@@ -7,6 +7,7 @@ import ReaderLayout from '@/view/mine/ReaderLayout.vue'
 import MineOverviewPage from '@/view/mine/OverviewPage.vue'
 import MinePlaceholderPage from '@/view/mine/PlaceholderPage.vue'
 import MineBookshelfPage from '@/view/mine/BookshelfPage.vue'
+import MineHistoryPage from '@/view/mine/HistoryPage.vue'
 import MinePrefsPage from '@/view/mine/PrefsPage.vue'
 import MineFollowPage from '@/view/mine/FollowPage.vue'
 import AuthorLayout from '@/view/author/AuthorLayout.vue'
@@ -21,6 +22,9 @@ import ReviewsPage from '@/view/admin/ReviewsPage.vue'
 import ProfilePage from '@/view/admin/ProfilePage.vue'
 import ReadView from '@/view/ReadView.vue'
 import BookCatalogView from '@/view/BookCatalogView.vue'
+import SearchView from '@/view/SearchView.vue'
+import CategoryView from '@/view/CategoryView.vue'
+import RankView from '@/view/RankView.vue'
 import { getLastPath, setLastPath, useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
@@ -37,6 +41,24 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { title: '阅界 - 登录' },
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: SearchView,
+      meta: { title: '阅界 - 搜索' },
+    },
+    {
+      path: '/category',
+      name: 'category',
+      component: CategoryView,
+      meta: { title: '阅界 - 分类' },
+    },
+    {
+      path: '/ranks',
+      name: 'ranks',
+      component: RankView,
+      meta: { title: '阅界 - 排行榜' },
     },
     {
       path: '/book/:id',
@@ -74,8 +96,7 @@ const router = createRouter({
         {
           path: 'history',
           name: 'mine-history',
-          component: MinePlaceholderPage,
-          props: { title: '浏览历史', tip: '浏览历史将在阅读器上线后接入。' },
+          component: MineHistoryPage,
           meta: { title: '阅界 - 浏览历史', requiresAuth: true, role: 'reader' },
         },
         {

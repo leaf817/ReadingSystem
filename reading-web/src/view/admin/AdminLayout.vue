@@ -1,409 +1,270 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppHeader from '@/components/AppHeader.vue'
 import SideIcon, { type SideIconName } from '@/components/SideIcon.vue'
+import { fetchMeApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { adminStats } from './adminData'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const avatarOpen = ref(false)
+const bio = ref(auth.user?.bio || '')
 
-const menuOpen = ref(false)
-const userMenu = ref<HTMLElement | null>(null)
-
-const menus: { path: string; label: string; exact?: boolean; icon: SideIconName }[] = [
-  { path: '/admin', label: '数据概览', exact: true, icon: 'overview' },
-  { path: '/admin/books', label: '书籍管理', icon: 'books' },
-  { path: '/admin/users', label: '用户管理', icon: 'users' },
-  { path: '/admin/ranks', label: '榜单运营', icon: 'ranks' },
-  { path: '/admin/reviews', label: '内容审核', icon: 'reviews' },
+const tabs: { path: string; label: string; icon: SideIconName; exact?: boolean }[] = [
+  { path: '/admin', label: '概览', icon: 'overview', exact: true },
+  { path: '/admin/books', label: '书籍', icon: 'books' },
+  { path: '/admin/users', label: '用户', icon: 'users' },
+  { path: '/admin/ranks', label: '榜单', icon: 'ranks' },
+  { path: '/admin/reviews', label: '审核', icon: 'reviews' },
+  { path: '/admin/profile', label: '设置', icon: 'profile' },
 ]
-
-const pageTitle = computed(() => {
-  if (route.path.startsWith('/admin/profile')) return '个人信息'
-  const hit = menus.find((m) =>
-    m.exact ? route.path === m.path : route.path.startsWith(m.path),
-  )
-  return hit?.label ?? '管理端工作台'
-})
 
 const displayName = computed(() => auth.user?.displayName || '管理员')
 const avatarText = computed(() => displayName.value.trim().slice(0, 1) || '管')
+const hasBio = computed(() => Boolean(bio.value.trim()))
+const signature = computed(() => bio.value.trim() || '编辑个性签名')
+const snapshot = computed(() => adminStats.slice(0, 3))
 
 function isActive(path: string, exact?: boolean) {
   return exact ? route.path === path : route.path.startsWith(path)
 }
 
-function toggleMenu() {
-  menuOpen.value = !menuOpen.value
-}
-
-function closeMenu() {
-  menuOpen.value = false
-}
-
-function goBookstore() {
-  closeMenu()
-  router.push('/')
-}
-
 function goProfile() {
-  closeMenu()
   router.push('/admin/profile')
 }
 
-function logout() {
-  closeMenu()
-  auth.logout()
-  router.push('/login')
-}
-
-function onDocClick(event: MouseEvent) {
-  if (!menuOpen.value || !userMenu.value) return
-  if (!userMenu.value.contains(event.target as Node)) {
-    closeMenu()
+function goStat(label: string) {
+  if (label === '待审核') {
+    router.push('/admin/reviews')
+    return
+  }
+  if (label === '在架书籍') {
+    router.push('/admin/books')
   }
 }
 
-onMounted(() => {
-  document.addEventListener('click', onDocClick)
-})
+function openAvatar() {
+  avatarOpen.value = true
+}
 
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocClick)
+function closeAvatar() {
+  avatarOpen.value = false
+}
+
+watch(
+  () => auth.user?.bio,
+  (value) => {
+    bio.value = value || ''
+  },
+)
+
+onMounted(async () => {
+  try {
+    const me = await fetchMeApi()
+    bio.value = me.bio || ''
+    auth.patchProfile({
+      displayName: me.nickname,
+      avatar: me.avatar || undefined,
+      bio: me.bio || undefined,
+      username: me.username,
+    })
+  } catch {
+    bio.value = auth.user?.bio || ''
+  }
 })
 </script>
 
 <template>
-  <div class="layout">
-    <aside class="side">
-      <div class="side__foot">
-        <button
-          type="button"
-          class="mine-btn"
-          :class="{ 'is-active': route.path.startsWith('/admin/profile') }"
-          @click="goProfile"
-        >
-          <SideIcon name="profile" :size="16" />
-          个人信息
-        </button>
-      </div>
+  <div class="shell">
+    <AppHeader :with-cats="false" />
 
-      <nav class="menu">
-        <RouterLink
-          v-for="item in menus"
-          :key="item.path"
-          :to="item.path"
-          :class="{ 'is-active': isActive(item.path, item.exact) }"
-        >
-          <SideIcon :name="item.icon" :size="16" />
-          <span>{{ item.label }}</span>
-        </RouterLink>
-      </nav>
-
-      <div class="brand">
-        <span class="mark">阅</span>
-        <div>
-          <strong>阅界 · 管理端</strong>
-          <p>运营工作台</p>
-        </div>
-      </div>
-    </aside>
-
-    <div class="body">
-      <header class="top">
-        <div>
-          <h1>{{ pageTitle }}</h1>
-          <p>阅界小说阅读管理系统 · 管理端</p>
-        </div>
-        <div class="actions">
-          <div ref="userMenu" class="user-menu">
+    <section class="banner">
+      <div class="banner__art" aria-hidden="true" />
+      <div class="banner__inner">
+        <div class="banner__left">
+          <button type="button" class="avatar-btn" title="查看头像" @click="openAvatar">
+            <span v-if="auth.user?.avatar" class="avatar avatar--img">
+              <img :src="auth.user.avatar" :alt="displayName" />
+            </span>
+            <span v-else class="avatar">{{ avatarText }}</span>
+          </button>
+          <div class="who">
+            <h1>{{ displayName }}</h1>
+            <div class="meta">
+              <button
+                v-for="item in snapshot"
+                :key="item.label"
+                type="button"
+                @click="goStat(item.label)"
+              >
+                {{ item.label }} <b>{{ item.value }}</b>
+              </button>
+            </div>
             <button
               type="button"
-              class="user-chip"
-              :class="{ 'is-open': menuOpen }"
-              aria-haspopup="menu"
-              :aria-expanded="menuOpen"
-              @click.stop="toggleMenu"
+              class="sign"
+              :class="{ 'is-empty': !hasBio }"
+              :title="hasBio ? '编辑签名' : '填写签名'"
+              @click="goProfile"
             >
-              <span v-if="auth.user?.avatar" class="avatar avatar--img">
-                <img :src="auth.user.avatar" :alt="displayName" />
-              </span>
-              <span v-else class="avatar">{{ avatarText }}</span>
-              <span class="badge">{{ displayName }}</span>
-              <svg class="caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
-                <path
-                  d="M2.5 4.2L6 7.8l3.5-3.6"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-              </svg>
+              {{ signature }}
             </button>
-            <div v-if="menuOpen" class="user-dropdown" role="menu">
-              <button type="button" role="menuitem" @click="goBookstore">查看书城</button>
-              <button type="button" role="menuitem" class="is-danger" @click="logout">退出</button>
-            </div>
           </div>
         </div>
-      </header>
+        <button type="button" class="edit-btn" @click="goProfile">编辑资料</button>
+      </div>
+    </section>
 
-      <main class="content">
-        <RouterView />
-      </main>
+    <nav class="tabs" aria-label="管理端导航">
+      <div class="tabs__inner">
+        <RouterLink
+          v-for="item in tabs"
+          :key="item.path"
+          :to="item.path"
+          class="tab"
+          :class="{ 'is-on': isActive(item.path, item.exact) }"
+        >
+          <SideIcon :name="item.icon" :size="16" />
+          {{ item.label }}
+        </RouterLink>
+      </div>
+    </nav>
+
+    <main class="main">
+      <RouterView />
+    </main>
+
+    <div
+      v-if="avatarOpen"
+      class="avatar-preview"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="displayName"
+      @click="closeAvatar"
+    >
+      <span v-if="auth.user?.avatar" class="avatar-preview__img">
+        <img :src="auth.user.avatar" :alt="displayName" />
+      </span>
+      <span v-else class="avatar-preview__letter">{{ avatarText }}</span>
+      <p>{{ displayName }}</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.layout {
+.shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 228px 1fr;
   background:
-    radial-gradient(ellipse 80% 50% at 8% -8%, rgba(255, 77, 58, 0.07), transparent 52%),
-    radial-gradient(ellipse 55% 40% at 92% 0%, rgba(245, 166, 35, 0.05), transparent 48%),
+    radial-gradient(ellipse 80% 50% at 8% -8%, rgba(255, 77, 58, 0.08), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 92% 0%, rgba(120, 170, 230, 0.12), transparent 48%),
     var(--page);
 }
 
-.side {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 20px 12px;
-  background: linear-gradient(180deg, #1a2435 0%, #24344d 100%);
-  color: #fff;
-}
-
-.brand {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  background: var(--brand);
-  font-family: var(--font-serif);
-  font-size: 19px;
-  box-shadow: 0 8px 18px rgba(255, 77, 58, 0.28);
-}
-
-.brand strong {
-  display: block;
-  font-size: 14px;
-}
-
-.brand p {
-  margin-top: 3px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.menu {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.menu a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 14px;
-  transition: background 0.2s, color 0.2s;
-}
-
-.menu a :deep(.side-icon) {
-  opacity: 0.78;
-}
-
-.menu a:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.menu a:hover :deep(.side-icon),
-.menu a.is-active :deep(.side-icon) {
-  opacity: 1;
-}
-
-.menu a.is-active {
-  background: var(--brand);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 8px 16px rgba(255, 77, 58, 0.24);
-}
-
-.side__foot {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 4px;
-}
-
-.mine-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
-}
-
-.mine-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.mine-btn.is-active {
-  border-color: transparent;
-  background: var(--brand);
-  color: #fff;
-  box-shadow: 0 8px 16px rgba(255, 77, 58, 0.24);
-}
-
-.body {
-  min-width: 0;
-  padding: 20px 16px 28px;
-}
-
-.top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 22px;
-}
-
-.top h1 {
-  font-family: var(--font-serif);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.top p {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--ink-muted);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.user-menu {
+.banner {
   position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #eaf2ff 0%, #f3f7ff 48%, #fff4ee 100%);
+  border-bottom: 1px solid var(--header-line);
 }
 
-.user-chip {
+.banner__art {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(255, 122, 89, 0.16), transparent 32%),
+    radial-gradient(circle at 88% 10%, rgba(120, 170, 230, 0.22), transparent 34%),
+    radial-gradient(circle at 78% 90%, rgba(255, 180, 140, 0.28), transparent 38%);
+  pointer-events: none;
+}
+
+.banner__art::after {
+  content: '阅';
+  position: absolute;
+  right: 5%;
+  bottom: -28px;
+  font-family: var(--font-display);
+  font-size: 168px;
+  line-height: 1;
+  color: rgba(255, 77, 58, 0.08);
+  letter-spacing: 0.08em;
+}
+
+.banner__inner {
+  position: relative;
+  z-index: 1;
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  min-height: 176px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 36px 0;
+}
+
+.banner__left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.edit-btn {
+  position: absolute;
+  right: 72px;
+  bottom: 8px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   height: 36px;
-  padding: 0 10px 0 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(30, 40, 60, 0.06);
-  cursor: pointer;
-}
-
-.user-chip.is-open,
-.user-chip:hover {
-  border-color: rgba(255, 77, 58, 0.28);
-}
-
-.caret {
-  color: var(--ink-muted);
-  transition: transform 0.2s;
-}
-
-.user-chip.is-open .caret {
-  transform: rotate(180deg);
-}
-
-.user-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 20;
-  min-width: 132px;
-  box-sizing: border-box;
-  padding: 5px;
+  padding: 0 18px;
+  border: 1px solid rgba(24, 25, 28, 0.18);
   border-radius: 10px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 20px rgba(30, 40, 60, 0.12);
-}
-
-.user-dropdown button {
-  display: block;
-  width: 100%;
-  border: 0;
   background: transparent;
-  text-align: center;
-  padding: 9px 12px;
-  border-radius: 7px;
-  font-size: 13px;
-  line-height: 1.2;
-  color: var(--ink-secondary);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  white-space: nowrap;
+  box-shadow: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.user-dropdown button:hover {
-  background: #fff5f3;
+.edit-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
   color: var(--brand);
 }
 
-.user-dropdown button.is-danger:hover {
-  background: #fff1ef;
-  color: #d9382a;
+.avatar-btn {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 0 0 3px var(--surface), 0 8px 18px rgba(0, 0, 0, 0.12);
 }
 
 .avatar {
-  width: 26px;
-  height: 26px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
-  flex-shrink: 0;
   background: linear-gradient(145deg, #ff7a59, #ff4d3a);
   color: #fff;
-  font-size: 12px;
+  font-size: 30px;
   font-weight: 700;
   overflow: hidden;
 }
 
 .avatar--img {
   background: #f0eeea;
-  padding: 0;
 }
 
 .avatar--img img {
@@ -413,36 +274,202 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.badge {
-  color: var(--brand);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.content {
+.who {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
 }
 
-@media (max-width: 980px) {
-  .layout {
-    grid-template-columns: 1fr;
+.who h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  color: var(--ink-secondary);
+  font-size: 13px;
+}
+
+.meta button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.meta b {
+  margin-left: 4px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.meta button:hover {
+  color: var(--brand);
+}
+
+.sign {
+  margin: 2px 0 0;
+  border: 0;
+  padding: 0;
+  max-width: min(42em, 100%);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sign.is-empty {
+  color: var(--ink-muted);
+}
+
+.sign:hover {
+  color: var(--brand);
+}
+
+.tabs {
+  position: sticky;
+  top: 60px;
+  z-index: 40;
+  background: var(--space-tabs);
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs__inner {
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs__inner::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 52px;
+  padding: 0 16px;
+  color: var(--space-tab-ink);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab :deep(.side-icon) {
+  opacity: 0.75;
+}
+
+.tab:hover,
+.tab.is-on {
+  color: var(--brand);
+}
+
+.tab:hover :deep(.side-icon),
+.tab.is-on :deep(.side-icon) {
+  opacity: 1;
+}
+
+.tab.is-on::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--brand);
+}
+
+.main {
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 22px 0 48px;
+}
+
+.avatar-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  background: rgba(18, 14, 12, 0.72);
+  cursor: pointer;
+}
+
+.avatar-preview__img,
+.avatar-preview__letter {
+  width: min(72vw, 360px);
+  height: min(72vw, 360px);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.avatar-preview__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #f0eeea;
+}
+
+.avatar-preview__letter {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #ff7a59, #ff4d3a);
+  color: #fff;
+  font-size: 120px;
+  font-weight: 700;
+}
+
+.avatar-preview p {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 800px) {
+  .banner__inner {
+    min-height: 152px;
+    padding: 28px 0;
   }
 
-  .side {
-    position: static;
-    height: auto;
-    gap: 16px;
+  .who h1 {
+    font-size: 20px;
   }
 
-  .menu {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .mine-btn {
-    width: auto;
-    padding: 0 16px;
+  .tab {
+    padding: 0 12px;
+    font-size: 14px;
   }
 }
 </style>

@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 /** 每次 `npm run dev` / 重启 Vite 都会变化；浏览器普通刷新不变 */
 const FRONTEND_BOOT_ID = String(Date.now())
@@ -14,7 +13,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    vueDevTools(),
   ],
   resolve: {
     alias: {

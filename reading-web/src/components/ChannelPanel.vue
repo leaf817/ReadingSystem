@@ -36,7 +36,7 @@ defineProps<{
   background: var(--tone);
   border-radius: 16px;
   padding: 16px 16px 8px;
-  border: 1px solid rgba(255, 120, 100, 0.1);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
 }
 
@@ -83,7 +83,7 @@ defineProps<{
   gap: 12px;
   align-items: center;
   padding: 10px 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  border-top: 1px solid var(--line);
   cursor: pointer;
   border-radius: 8px;
   transition: background 0.2s;
@@ -94,7 +94,7 @@ defineProps<{
 }
 
 .item:hover {
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--hover-soft);
 }
 
 .item:hover h4 {

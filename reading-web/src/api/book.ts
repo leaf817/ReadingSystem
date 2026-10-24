@@ -1,5 +1,6 @@
 import { request } from './request'
 import type { BannerItem, Book } from '@/data/mockBooks'
+import type { SearchBy } from '@/utils/bookSearch'
 
 export interface HomeFeed {
   banners: BannerItem[]
@@ -16,9 +17,12 @@ export function fetchHomeFeed() {
   return request<HomeFeed>('/api/home')
 }
 
-export function fetchBooks(keyword?: string) {
-  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''
-  return request<Book[]>(`/api/books${query}`)
+export function fetchBooks(keyword?: string, by?: SearchBy) {
+  const params = new URLSearchParams()
+  if (keyword) params.set('keyword', keyword)
+  if (by) params.set('by', by)
+  const query = params.toString()
+  return request<Book[]>(`/api/books${query ? `?${query}` : ''}`)
 }
 
 export function fetchBook(id: number) {

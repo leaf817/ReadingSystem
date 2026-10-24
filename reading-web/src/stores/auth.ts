@@ -28,7 +28,7 @@ const roleHome: Record<UserRole, string> = {
 const roleProfile: Record<UserRole, string> = {
   admin: '/admin/profile',
   author: '/author/profile',
-  reader: '/mine/profile',
+  reader: '/mine',
 }
 
 const roleLabel: Record<UserRole, string> = {
